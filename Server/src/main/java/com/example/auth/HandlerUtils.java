@@ -8,7 +8,7 @@ import java.util.List;
 public class HandlerUtils {
     public static void setCorsHeaders(HttpExchange exchange) {
         exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "http://localhost:5173");
-        exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type,Authorization");
         exchange.getResponseHeaders().add("Access-Control-Allow-Credentials", "true");
     }

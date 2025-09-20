@@ -1,6 +1,10 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 const Hero = () => {
+  
+  const navigate = useNavigate();
+
   return (
     <section className="flex flex-col items-center justify-center flex-1 px-6 py-16 text-center">
       <motion.h1
@@ -22,7 +26,7 @@ const Hero = () => {
       <motion.button
         whileHover={{ scale: 1.15, rotate: 2 }}
         whileTap={{ scale: 0.9 }}
-        className="bg-[#0ea5a4] text-white font-bold px-8 py-4 rounded-full shadow-lg hover:bg-[#056b66] transition-all"
+        className="bg-[#0ea5a4] text-white font-bold px-8 py-4 rounded-full shadow-lg hover:bg-[#056b66] transition-all" onClick={() => navigate("/home/invoiceStart")}
       >
         Get Started
       </motion.button>

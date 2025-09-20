@@ -13,6 +13,7 @@ public class Main {
         server.createContext("/login", new LoginHandler());
         server.createContext("/logout", new LogoutHandler());
         server.createContext("/check-session", new CheckSessionHandler());
+        server.createContext("/invoices", new InvoiceHandler());
 
         server.setExecutor(null);
         System.out.println("Core Java backend server starting on port: " + port);

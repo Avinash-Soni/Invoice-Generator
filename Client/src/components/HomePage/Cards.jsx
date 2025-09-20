@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { FaFileInvoiceDollar, FaTable } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 const cardVariants = {
   hidden: { opacity: 0, rotateY: 90 },
@@ -11,6 +12,9 @@ const cardVariants = {
 };
 
 const Cards = () => {
+
+  const navigate = useNavigate();
+  
   return (
     <>
       {/* Invoice Generator Card */}
@@ -31,7 +35,7 @@ const Cards = () => {
         <p className="text-sm text-gray-700 text-center">
           Build and customize invoices in seconds with our powerful editor.
         </p>
-        <button className="mt-3 bg-[#056b66] text-white font-semibold px-5 py-2.5 rounded-full hover:bg-[#0ea5a4] transition-all">
+        <button className="mt-3 bg-[#056b66] text-white font-semibold px-5 py-2.5 rounded-full hover:bg-[#0ea5a4] transition-all" onClick={() => navigate("/home/invoiceStart")} >
           Create Invoice
         </button>
       </motion.div>
