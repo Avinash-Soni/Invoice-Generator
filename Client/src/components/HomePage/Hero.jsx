@@ -19,7 +19,8 @@ const Hero = () => {
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.7, delay: 0.2 }}
-        className="text-lg md:text-2xl text-white/90 max-w-2xl mb-8"
+        // CHANGED: text-white/90 to text-slate-700
+        className="text-lg md:text-2xl text-slate-700 max-w-2xl mb-8"
       >
         Create and manage invoices effortlessly with our intuitive tools.
       </motion.p>

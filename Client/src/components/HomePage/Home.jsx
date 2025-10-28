@@ -4,7 +4,7 @@ import Footer from "./Footer";
 
 const Home = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_center,#0ea5a4_0%,#056b66_70%)] text-white">
+    <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_center,_#a7f3d0_0%,_#ffffff_70%)] text-slate-900">
       <Navbar />
       <div className="flex-1">
         {/* Dynamic content goes here */}

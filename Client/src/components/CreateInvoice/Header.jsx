@@ -1,11 +1,7 @@
 import React from "react";
-import { Button, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
-import { Filter, Plus } from 'lucide-react';
-import { useDispatch, useSelector } from "react-redux";
-import { setFilter } from "../../store/InvoiceSlice";
+import { Plus } from 'lucide-react'; 
+import { useSelector } from "react-redux";
 import { motion } from "framer-motion";
-
-const status = ["all", "paid", "pending", "draft"];
 
 // Animation variants
 const headerVariants = {
@@ -25,14 +21,8 @@ const buttonVariants = {
   },
 };
 
-const menuItemVariants = {
-  hidden: { opacity: 0, x: -10 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.3 } },
-};
-
 function Header({ onNewInvoice }) {
-  const { invoices, filter } = useSelector((state) => state.invoices);
-  const dispatch = useDispatch();
+  const { invoices } = useSelector((state) => state.invoices);
 
   return (
     <motion.header
@@ -50,30 +40,7 @@ function Header({ onNewInvoice }) {
         </p>
       </div>
       <div className="flex items-center space-x-6">
-        <Menu as="div" className="relative">
-          <MenuButton as={motion.button} variants={buttonVariants} whileHover="whileHover" whileTap="whileTap" className="flex items-center space-x-2 bg-[#056b66]/20 text-white px-4 py-2 rounded-full hover:bg-[#0ea5a4]/30 transition-all focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] shadow-lg" aria-label="Filter by Status">
-            <Filter size={20} className="text-white group-hover:text-[#0bd1c5] transition-colors" />
-            <span>Filter by Status</span>
-          </MenuButton>
-          <MenuItems className="absolute right-0 mt-2 w-48 bg-white/10 backdrop-blur-lg rounded-lg shadow-lg p-3 z-10 border-2 border-[#0ea5a4]/50">
-            {status.map((s, index) => (
-              <MenuItem key={s}>
-                {({ active }) => (
-                  <motion.button
-                    variants={menuItemVariants}
-                    initial="hidden"
-                    animate="visible"
-                    transition={{ delay: index * 0.1 }}
-                    className={`w-full text-left px-4 py-2 rounded-lg capitalize ${active ? "bg-[#056b66]/30" : ""} ${filter === s ? "text-[#0bd1c5] font-semibold" : "text-white"} transition-colors`}
-                    onClick={() => dispatch(setFilter(s))}
-                  >
-                    {s}
-                  </motion.button>
-                )}
-              </MenuItem>
-            ))}
-          </MenuItems>
-        </Menu>
+
         <motion.button
           variants={buttonVariants}
           whileHover="whileHover"

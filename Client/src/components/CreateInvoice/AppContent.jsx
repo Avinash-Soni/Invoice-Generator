@@ -38,13 +38,15 @@ function AppContent() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="bg-gradient-to-b from-slate-900 to-[#056b66] text-white min-h-screen"
+      // CHANGED: Updated background gradient and base text color for light theme
+      className="bg-gradient-to-b from-white to-teal-100 text-slate-900 min-h-screen"
     >
       <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         {status === "loading" && (
           <motion.div
             variants={childVariants}
-            className="bg-white/10 backdrop-blur-lg text-white p-4 rounded-xl mb-6 border border-[#0ea5a4]/50 shadow-lg flex items-center justify-center space-x-2"
+            // CHANGED: Updated loading bar for light theme
+            className="bg-white/80 backdrop-blur-lg text-slate-800 p-4 rounded-xl mb-6 border border-[#0ea5a4]/50 shadow-lg flex items-center justify-center space-x-2"
           >
             <svg
               className="animate-spin h-5 w-5 text-[#0bd1c5]"
@@ -66,6 +68,7 @@ function AppContent() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
+            {/* This gradient text will look great on the new light background */}
             <span className="bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] bg-clip-text text-transparent font-semibold">
               Loading invoices...
             </span>
@@ -74,7 +77,8 @@ function AppContent() {
         {status === "failed" && error && (
           <motion.div
             variants={childVariants}
-            className="bg-red-500/20 text-red-300 p-4 rounded-xl mb-6 border border-red-400/50 backdrop-blur-lg flex items-center justify-center"
+            // CHANGED: Updated error message for light theme
+            className="bg-red-100/80 text-red-800 p-4 rounded-xl mb-6 border border-red-300/50 backdrop-blur-lg flex items-center justify-center"
           >
             <span className="font-semibold">{error}</span>
           </motion.div>

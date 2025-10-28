@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { addInvoice, setSelectedInvoice, toggleForm, updateInvoice } from "../../store/InvoiceSlice";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { motion } from "framer-motion";
 
 const BILL_FROM = {
@@ -45,24 +45,23 @@ const generateInvoiceId = (invoices) => {
   return `${prefix}${padded}`;
 };
 
+
 const getInitialFormData = () => ({
-  status: "pending",
   billFrom: { ...BILL_FROM },
   billTo: { clientEmail: "", streetAddress: "", city: "", postCode: "", country: "", gstin: "" },
   clientName: "",
   items: [],
-  paymentTerms: "Net 30 Days",
   projectDescription: "",
   suppliersRef: "",
   termsOfPayment: "",
   otherRef: "",
   invoiceDate: format(new Date(), "yyyy-MM-dd"),
-  dueDate: format(addDays(new Date(), 30), "yyyy-MM-dd"),
   subtotal: 0,
   gstAmount: 0,
   total: 0,
 });
 
+// ... (formVariants, itemVariants, buttonVariants remain the same) ...
 const formVariants = {
   hidden: { opacity: 0, scale: 0.9, y: 50 },
   visible: {
@@ -90,12 +89,14 @@ const buttonVariants = {
   },
 };
 
+
 function InvoiceForm({ invoice }) {
   const dispatch = useDispatch();
   const { invoices, status, error } = useSelector((state) => state.invoices);
   const [formData, setFormData] = useState(getInitialFormData());
   const [formError, setFormError] = useState(null);
 
+  // ... (useEffect and logic functions remain the same) ...
   useEffect(() => {
     if (invoice) {
       setFormData({
@@ -134,12 +135,9 @@ function InvoiceForm({ invoice }) {
     e.preventDefault();
     setFormError(null);
 
+    // ... (Validations remain the same) ...
     if (!formData.clientName || formData.clientName.trim() === "") {
       setFormError("Client name is required");
-      return;
-    }
-    if (!formData.dueDate || formData.dueDate.trim() === "") {
-      setFormError("Due date is required");
       return;
     }
     if (!formData.invoiceDate || formData.invoiceDate.trim() === "") {
@@ -157,6 +155,7 @@ function InvoiceForm({ invoice }) {
       setFormError("Bill From (name and streetAddress) and Bill To (streetAddress) are required");
       return;
     }
+
 
     const finalData = {
       ...formData,
@@ -182,15 +181,16 @@ function InvoiceForm({ invoice }) {
       },
     };
 
+    delete finalData.paymentTerms;
+    delete finalData.dueDate;
+    delete finalData.status;
+
     try {
       if (invoice) {
-        console.log("Updating invoice with payload:", JSON.stringify(finalData, null, 2));
         await dispatch(updateInvoice(finalData)).unwrap();
       } else {
-        console.log("Creating invoice with payload:", JSON.stringify(finalData, null, 2));
         await dispatch(addInvoice(finalData)).unwrap();
       }
-      // Close the form on successful submission, same as Cancel button
       dispatch(toggleForm());
     } catch (err) {
       console.error("Submit Invoice Error:", err);
@@ -227,18 +227,8 @@ function InvoiceForm({ invoice }) {
     });
   };
 
-  const handlePaymentTermsChange = (e) => {
-    const terms = e.target.value;
-    const days = terms === "Net 60 Days" ? 60 : 30;
-    setFormData({
-      ...formData,
-      paymentTerms: terms,
-      dueDate: format(addDays(new Date(formData.invoiceDate), days), "yyyy-MM-dd"),
-    });
-  };
-
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-start justify-center overflow-y-auto py-8">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-start justify-center overflow-y-auto py-8">
       <style>
         {`
           input[type="number"]::-webkit-inner-spin-button,
@@ -255,7 +245,8 @@ function InvoiceForm({ invoice }) {
         variants={formVariants}
         initial="hidden"
         animate="visible"
-        className="bg-white/10 backdrop-blur-lg p-8 rounded-2xl w-full max-w-3xl mt-8 mb-8 text-white border-2 border-[#0ea5a4]/50 shadow-2xl"
+        // User confirmed this is max-w-5xl
+        className="bg-white/90 backdrop-blur-lg p-8 rounded-2xl w-full max-w-5xl mt-8 mb-8 text-slate-900 border-2 border-[#0ea5a4]/50 shadow-2xl"
       >
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-extrabold bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] bg-clip-text text-transparent">
@@ -267,7 +258,7 @@ function InvoiceForm({ invoice }) {
             whileTap="whileTap"
             type="button"
             onClick={() => dispatch(toggleForm())}
-            className="text-white hover:text-[#0bd1c5] transition-colors"
+            className="text-slate-700 hover:text-[#0bd1c5] transition-colors"
             aria-label="Close Form"
           >
             <X size={28} />
@@ -277,95 +268,103 @@ function InvoiceForm({ invoice }) {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-red-500/20 text-red-300 p-4 rounded-lg mb-6 border border-red-400/50"
+            className="bg-red-100/80 text-red-800 p-4 rounded-lg mb-6 border border-red-300/50"
           >
             {formError}
           </motion.div>
         )}
+
         <form className="space-y-8" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <h3 className="text-xl font-bold text-[#0bd1c5]">Bill From</h3>
-            <div className="p-6 bg-[#056b66]/20 rounded-xl text-white/90 text-sm shadow-inner">
-              <p className="font-bold text-lg text-white">{BILL_FROM.name}</p>
-              <p>{BILL_FROM.streetAddress}</p>
-              <p>{`${BILL_FROM.city}, ${BILL_FROM.country} - ${BILL_FROM.postCode}`}</p>
-              <p className="mt-2"><strong>GSTIN:</strong> {BILL_FROM.gstin}</p>
-              <p><strong>Email:</strong> {BILL_FROM.email}</p>
+
+          {/* === 2-COLUMN GRID FOR BILLING === */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+            {/* --- BILL FROM (COLUMN 1) --- */}
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold text-[#0bd1c5]">Bill From</h3>
+              {/* REMOVED: h-full class */}
+              <div className="p-6 bg-teal-50 rounded-xl text-slate-700 text-sm shadow-inner">
+                <p className="font-bold text-lg text-slate-900">{BILL_FROM.name}</p>
+                <p>{BILL_FROM.streetAddress}</p>
+                <p>{`${BILL_FROM.city}, ${BILL_FROM.country} - ${BILL_FROM.postCode}`}</p>
+                <p className="mt-2"><strong>GSTIN:</strong> {BILL_FROM.gstin}</p>
+                <p><strong>Email:</strong> {BILL_FROM.email}</p>
+              </div>
+            </div>
+
+            {/* --- BILL TO (COLUMN 2) --- */}
+            <div className="space-y-4 flex flex-col">
+              {/* CHANGED: Wrapped header and dropdown in a flex container */}
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-[#0bd1c5]">Bill To</h3>
+                <select
+                  className="w-4/5 bg-white border border-slate-300 rounded-xl p-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all"
+                  value={formData.clientName || ""}
+                  onChange={(e) => {
+                    const selected = CLIENTS.find((c) => c.clientName === e.target.value);
+                    setFormData({
+                      ...formData,
+                      clientName: selected?.clientName || "",
+                      billTo: selected
+                        ? {
+                          clientEmail: selected.clientEmail,
+                          streetAddress: selected.streetAddress,
+                          city: selected.city,
+                          postCode: selected.postCode,
+                          country: selected.country,
+                          gstin: selected.gstin,
+                        }
+                        : { clientEmail: "", streetAddress: "", city: "", postCode: "", country: "", gstin: "" },
+                    });
+                  }}
+                  required
+                  aria-label="Select Client"
+                >
+                  <option value="" className="text-black/50">Select a Client</option>
+                  {CLIENTS.map((client, i) => (
+                    <option key={i} value={client.clientName} className="text-black">
+                      {client.clientName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Client details preview box */}
+              {/* REMOVED: flex-1 class */}
+              <div className="p-6 bg-teal-50 rounded-xl text-slate-700 text-sm shadow-inner">
+                {formData.clientName ? (
+                  <>
+                    <p className="font-bold text-lg text-slate-900">{formData.clientName}</p>
+                    <p>{formData.billTo.streetAddress || "No street address"}</p>
+                    <p>{`${formData.billTo.city || "N/A"}, ${formData.billTo.country || "N/A"} - ${formData.billTo.postCode || "N/A"}`}</p>
+                    <p className="mt-2"><strong>GSTIN:</strong> {formData.billTo.gstin || "N/A"}</p>
+                    <p><strong>Email:</strong> {formData.billTo.clientEmail || "N/A"}</p>
+                  </>
+                ) : (
+                  <p className="text-slate-500">Client details will appear here.</p>
+                )}
+              </div>
             </div>
           </div>
-          <div className="space-y-4">
-            <h3 className="text-xl font-bold text-[#0bd1c5]">Bill To</h3>
-            <select
-              className="w-full bg-[#056b66]/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all"
-              value={formData.clientName || ""}
-              onChange={(e) => {
-                const selected = CLIENTS.find((c) => c.clientName === e.target.value);
-                setFormData({
-                  ...formData,
-                  clientName: selected?.clientName || "",
-                  billTo: selected
-                    ? {
-                        clientEmail: selected.clientEmail,
-                        streetAddress: selected.streetAddress,
-                        city: selected.city,
-                        postCode: selected.postCode,
-                        country: selected.country,
-                        gstin: selected.gstin,
-                      }
-                    : { clientEmail: "", streetAddress: "", city: "", postCode: "", country: "", gstin: "" },
-                });
-              }}
-              required
-              aria-label="Select Client"
-            >
-              <option value="" className="text-black/50">Select a Client</option>
-              {CLIENTS.map((client, i) => (
-                <option key={i} value={client.clientName} className="text-black">
-                  {client.clientName}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* === END 2-COLUMN GRID === */}
+
+
+          {/* === INVOICE DETAILS SECTION === */}
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <h3 className="text-xl font-bold text-[#0bd1c5]">Invoice Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              {/* Row 1: 3-column layout */}
               <input
                 type="date"
-                className="bg-[#056b66]/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all"
+                className="bg-white border border-slate-300 rounded-xl p-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all md:col-span-2"
                 value={formData.invoiceDate}
                 onChange={(e) => {
-                  const newDate = e.target.value;
-                  const days = formData.paymentTerms === "Net 60 Days" ? 60 : 30;
-                  setFormData({
-                    ...formData,
-                    invoiceDate: newDate,
-                    dueDate: format(addDays(new Date(newDate), days), "yyyy-MM-dd"),
-                  });
+                  setFormData({ ...formData, invoiceDate: e.target.value });
                 }}
                 required
                 aria-label="Invoice Date"
               />
-              <select
-                className="bg-[#056b66]/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all"
-                value={formData.paymentTerms}
-                onChange={handlePaymentTermsChange}
-                required
-                aria-label="Payment Terms"
-              >
-                <option value="Net 30 Days" className="text-black">Net 30 Days</option>
-                <option value="Net 60 Days" className="text-black">Net 60 Days</option>
-              </select>
-            </div>
-            <input
-              type="text"
-              placeholder="Delivery Note"
-              value={formData.projectDescription}
-              onChange={(e) =>
-                setFormData({ ...formData, projectDescription: e.target.value })
-              }
-              className="w-full bg-[#056b66]/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all"
-              aria-label="Delivery Note"
-            />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
               <input
                 type="text"
                 placeholder="Mode/Terms of Payment"
@@ -373,9 +372,10 @@ function InvoiceForm({ invoice }) {
                 onChange={(e) =>
                   setFormData({ ...formData, termsOfPayment: e.target.value })
                 }
-                className="w-full bg-[#056b66]/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all"
+                className="w-full bg-white border border-slate-300 rounded-xl p-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all md:col-span-2"
                 aria-label="Mode or Terms of Payment"
               />
+
               <input
                 type="text"
                 placeholder="Supplier's Ref."
@@ -383,9 +383,22 @@ function InvoiceForm({ invoice }) {
                 onChange={(e) =>
                   setFormData({ ...formData, suppliersRef: e.target.value })
                 }
-                className="w-full bg-[#056b66]/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all"
+                className="w-full bg-white border border-slate-300 rounded-xl p-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all md:col-span-2"
                 aria-label="Supplier's Reference"
               />
+
+              {/* Row 2: 2-column layout */}
+              <input
+                type="text"
+                placeholder="Delivery Note"
+                value={formData.projectDescription}
+                onChange={(e) =>
+                  setFormData({ ...formData, projectDescription: e.target.value })
+                }
+                className="w-full bg-white border border-slate-300 rounded-xl p-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all md:col-span-3"
+                aria-label="Delivery Note"
+              />
+
               <input
                 type="text"
                 placeholder="Other Ref."
@@ -393,25 +406,30 @@ function InvoiceForm({ invoice }) {
                 onChange={(e) =>
                   setFormData({ ...formData, otherRef: e.target.value })
                 }
-                className="w-full bg-[#056b66]/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all md:col-span-2"
+                className="w-full bg-white border border-slate-300 rounded-xl p-4 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all md:col-span-3"
                 aria-label="Other Reference"
               />
             </div>
           </div>
+          {/* === END INVOICE DETAILS SECTION === */}
+
+
+          {/* ... (Item List section) ... */}
           <div className="space-y-4">
             <h3 className="text-2xl font-bold text-[#0bd1c5]">Item List</h3>
+            {/* ... (items.map logic) ... */}
             {formData.items.map((item, i) => (
               <motion.div
                 key={i}
                 variants={itemVariants}
                 initial="hidden"
                 animate="visible"
-                className={`grid grid-cols-12 gap-4 items-center p-4 rounded-xl ${i % 2 === 0 ? 'bg-[#056b66]/10' : 'bg-[#0ea5a4]/10'}`}
+                className={`grid grid-cols-12 gap-4 items-center p-4 rounded-xl ${i % 2 === 0 ? 'bg-white' : 'bg-teal-50'}`}
               >
                 <input
                   type="text"
                   placeholder="Item Name"
-                  className="bg-[#056b66]/20 rounded-lg p-3 col-span-5 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all"
+                  className="bg-white border border-slate-300 rounded-lg p-3 col-span-5 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all"
                   value={item.name}
                   onChange={(e) => updateItem(i, "name", e.target.value)}
                   required
@@ -420,7 +438,7 @@ function InvoiceForm({ invoice }) {
                 <input
                   type="number"
                   placeholder="Qty."
-                  className="bg-[#056b66]/20 rounded-lg p-3 col-span-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all appearance-none"
+                  className="bg-white border border-slate-300 rounded-lg p-3 col-span-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all appearance-none"
                   value={item.quantity}
                   onChange={(e) => updateItem(i, "quantity", e.target.value)}
                   required
@@ -429,14 +447,14 @@ function InvoiceForm({ invoice }) {
                 <input
                   type="number"
                   placeholder="Rate"
-                  className="bg-[#056b66]/20 rounded-lg p-3 col-span-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all appearance-none"
+                  className="bg-white border border-slate-300 rounded-lg p-3 col-span-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0bd1c5] transition-all appearance-none"
                   step="0.01"
                   value={item.rate}
                   onChange={(e) => updateItem(i, "rate", e.target.value)}
                   required
                   aria-label={`Item ${i + 1} Rate`}
                 />
-                <div className="col-span-2 text-right font-bold text-white">
+                <div className="col-span-2 text-right font-bold text-slate-900">
                   ₹{item.total.toFixed(2)}
                 </div>
                 <motion.button
@@ -444,7 +462,7 @@ function InvoiceForm({ invoice }) {
                   whileHover="whileHover"
                   whileTap="whileTap"
                   type="button"
-                  className="text-white hover:text-red-500 transition-colors"
+                  className="text-slate-500 hover:text-red-500 transition-colors"
                   onClick={() => removeItem(i)}
                   aria-label={`Remove Item ${i + 1}`}
                 >
@@ -464,17 +482,19 @@ function InvoiceForm({ invoice }) {
               <span>Add New Item</span>
             </motion.button>
           </div>
+
+          {/* ... (Totals and Buttons section) ... */}
           <div className="flex flex-col space-y-6 pt-6">
-            <div className="bg-[#056b66]/20 rounded-xl p-6 space-y-3 shadow-inner">
-              <div className="flex justify-between text-white/90">
+            <div className="bg-teal-50 rounded-xl p-6 space-y-3 shadow-inner">
+              <div className="flex justify-between text-slate-700">
                 <span>Subtotal</span>
-                <span className="font-bold">₹{subtotal.toFixed(2)}</span>
+                <span className="font-bold text-slate-900">₹{subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-white/90">
+              <div className="flex justify-between text-slate-700">
                 <span>GST (18%)</span>
-                <span className="font-bold">₹{gstAmount.toFixed(2)}</span>
+                <span className="font-bold text-slate-900">₹{gstAmount.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-white border-t border-white/30 pt-3 mt-3">
+              <div className="flex justify-between text-slate-900 border-t border-slate-300 pt-3 mt-3">
                 <span className="text-xl font-bold">Grand Total</span>
                 <span className="text-2xl font-bold bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] bg-clip-text text-transparent">
                   ₹{grandTotal.toFixed(2)}
@@ -499,7 +519,7 @@ function InvoiceForm({ invoice }) {
                 whileTap="whileTap"
                 type="submit"
                 className="bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] hover:from-[#056b66] hover:to-[#0ea5a4] rounded-full px-8 py-3 font-semibold text-white shadow-lg"
-                aria-label={invoice ? "Save Changes" : "Create Invoice"} 
+                aria-label={invoice ? "Save Changes" : "Create Invoice"}
               >
                 {invoice ? "Save Changes" : "Create Invoice"}
               </motion.button>

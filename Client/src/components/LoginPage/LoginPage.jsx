@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "./AuthContext";
-import DesignerSquareLogo from "../logo/DesignerSquareLogo";
+import logoImage from '../../Logo.png';
 
 export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -133,9 +133,10 @@ export default function LoginPage() {
         <div className="panel left-panel">
           <div className="content">
             <div className="flex items-center justify-center">
-              <DesignerSquareLogo size={250} />
+              {/* REPLACED this: <DesignerSquareLogo size={250} /> */}
+              <img src={logoImage} alt="Designer Square Logo" className="w-64 h-auto" />
             </div>
-            <h3>Don’t have an account?</h3>
+            <h3>Don't have an account?</h3>
             <p>
               Sign up now and get started with all our features in just a few clicks.
             </p>
@@ -151,7 +152,8 @@ export default function LoginPage() {
         <div className="panel right-panel">
           <div className="content">
             <div className="flex items-center justify-center">
-              <DesignerSquareLogo size={250} />
+              {/* REPLACED this: <DesignerSquareLogo size={250} /> */}
+              <img src={logoImage} alt="Designer Square Logo" className="w-64 h-auto" />
             </div>
             <h3>Join Our Community</h3>
             <p>Sign in to access your account and explore more features</p>

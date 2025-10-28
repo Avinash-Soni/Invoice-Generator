@@ -1,13 +1,13 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./components/LoginPage/LoginPage.jsx";
 import Home from "./components/HomePage/Home.jsx";
 import Hero from "./components/HomePage/Hero.jsx";
 import Features from "./components/HomePage/Features.jsx";
-import Contact from "./components/HomePage/Contact.jsx";
 import { AuthProvider } from "./components/LoginPage/AuthContext";
 import PrivateRoute from "./components/LoginPage/PrivateRoute";
 import "./App.css";
 import InvoiceStart from "./components/CreateInvoice/InvoiceStart.jsx"
+import CustomerSummary from "./components/Dashboard/CustomerSummary.jsx";
 
 export default function App() {
   return (
@@ -23,8 +23,8 @@ export default function App() {
           }>
             <Route index element={<><Hero /><Features /></>} />
             <Route path="features" element={<Features />} />
-            <Route path="contact" element={<Contact />} />
             <Route path="invoiceStart" element={<InvoiceStart />} />
+            <Route path="dashboard" element={<CustomerSummary />} />
           </Route>
         </Routes>
     </AuthProvider>
