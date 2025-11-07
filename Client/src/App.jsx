@@ -8,6 +8,7 @@ import PrivateRoute from "./components/LoginPage/PrivateRoute";
 import "./App.css";
 import InvoiceStart from "./components/CreateInvoice/InvoiceStart.jsx"
 import CustomerSummary from "./components/Dashboard/CustomerSummary.jsx";
+import Ledger from "./components/Dashboard/Ledger.jsx";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="features" element={<Features />} />
             <Route path="invoiceStart" element={<InvoiceStart />} />
             <Route path="dashboard" element={<CustomerSummary />} />
+            <Route path="ledger/:name" element={<Ledger />} />
           </Route>
         </Routes>
     </AuthProvider>

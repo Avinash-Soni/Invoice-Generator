@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus } from 'lucide-react'; 
+import { Plus } from 'lucide-react';
 import { useSelector } from "react-redux";
 import { motion } from "framer-motion";
 
@@ -35,27 +35,25 @@ function Header({ onNewInvoice }) {
         <h1 className="text-4xl font-extrabold bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] bg-clip-text text-transparent">
           Invoices
         </h1>
-        <p className="text-white/70 text-sm mt-1">
+        <p className="text-gray-700 text-sm mt-1">
           {invoices.length === 0 ? "No Invoices" : `There are ${invoices.length} Total Invoices`}
         </p>
       </div>
-      <div className="flex items-center space-x-6">
 
-        <motion.button
-          variants={buttonVariants}
-          whileHover="whileHover"
-          whileTap="whileTap"
-          type="button"
-          className="bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] hover:from-[#056b66] hover:to-[#0ea5a4] text-white px-6 py-2 rounded-full flex items-center space-x-2 shadow-lg transition-all"
-          onClick={onNewInvoice}
-          aria-label="Create New Invoice"
-        >
-          <div className="bg-gradient-to-r from-[#056b66] to-[#0ea5a4] rounded-full p-2">
-            <Plus size={16} className="text-white" />
-          </div>
-          <span>New Invoice</span>
-        </motion.button>
-      </div>
+      <motion.button
+        variants={buttonVariants}
+        whileHover="whileHover"
+        whileTap="whileTap"
+        type="button"
+        className="bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] hover:from-[#056b66] hover:to-[#0ea5a4] text-white px-6 py-2 rounded-full flex items-center space-x-2 shadow-lg transition-all"
+        onClick={onNewInvoice}
+        aria-label="Create New Invoice"
+      >
+        <div className="bg-gradient-to-r from-[#056b66] to-[#0ea5a4] rounded-full p-2">
+          <Plus size={16} className="text-white" />
+        </div>
+        <span>New Invoice</span>
+      </motion.button>
     </motion.header>
   );
 }

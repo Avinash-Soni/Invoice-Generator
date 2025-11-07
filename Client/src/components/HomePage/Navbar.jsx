@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../LoginPage/AuthContext";
-import logoImage from '../../Logo.png';
+import logoImage from '../../assets/Logo.png';
 import { useState } from "react"; 
 
 const Navbar = () => {
@@ -24,7 +24,7 @@ const Navbar = () => {
           <img 
             src={logoImage} 
             alt="Designer Square Logo" 
-            className="h-10 sm:h-12 md:h-14 lg:h-16"
+            className="h-15 sm:h-15 md:h-20 lg:h-20"
             style={{ width: 'auto' }} 
           />
         </Link>

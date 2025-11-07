@@ -15,6 +15,10 @@ public class Main {
         server.createContext("/check-session", new CheckSessionHandler());
         server.createContext("/invoices", new InvoiceHandler());
 
+        // --- NEW ROUTES ---
+        server.createContext("/customers", new CustomerHandler());
+        server.createContext("/ledger/", new LedgerHandler()); // Handles /ledger/[name]
+
         server.setExecutor(null);
         System.out.println("Core Java backend server starting on port: " + port);
         server.start();

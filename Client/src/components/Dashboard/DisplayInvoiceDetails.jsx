@@ -1,33 +1,13 @@
-import { format, parseISO } from "date-fns";
 import React, { useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { deleteInvoice, setSelectedInvoice } from "../../store/InvoiceSlice";
-import InvoicePDF from "./InvoicePDF";
-import { Download, X, Trash2 } from "lucide-react";
-import { PDFDownloadLink } from "@react-pdf/renderer";
-// Import AnimatePresence for exit animations
 import { motion, AnimatePresence } from "framer-motion";
+import { X, Trash2, Download } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import InvoicePDF from "../CreateInvoice/InvoicePDF"; // (Adjust path if needed)
 
-const detailsVariants = {
-  hidden: { opacity: 0, y: 50, scale: 0.95 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.4, ease: "easeOut" },
-  },
-  // Added an exit animation
-  exit: {
-    opacity: 0,
-    y: 50,
-    scale: 0.95,
-    transition: { duration: 0.3, ease: "easeInOut" },
-  },
-};
-
-// NEW: Variants for the delete modal
+// --- Modal animation variants ---
 const modalVariants = {
-  hidden: { opacity: 0, scale: 0.9, y: 20 },
+  hidden: { opacity: 0, scale: 0.9, y: 50 },
   visible: {
     opacity: 1,
     scale: 1,
@@ -37,36 +17,47 @@ const modalVariants = {
   exit: {
     opacity: 0,
     scale: 0.9,
-    y: 20,
-    transition: { duration: 0.2, ease: "easeInOut" },
+    y: 50,
+    transition: { duration: 0.2, ease: "easeIn" },
   },
 };
 
-// Main component
-function InvoiceDetails({ invoice }) {
-  const dispatch = useDispatch();
-  const { status } = useSelector((state) => state.invoices);
+// --- Invoice Details animation variants ---
+const detailsVariants = {
+  hidden: { opacity: 0, y: 50, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.4, ease: "easeOut" },
+  },
+  exit: {
+    opacity: 0,
+    y: 50,
+    scale: 0.95,
+    transition: { duration: 0.3, ease: "easeInOut" },
+  },
+};
+
+const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [actionError, setActionError] = useState(null);
 
-  // State to control the delete confirmation modal
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  // --- Actions ---
-
-  // This function now runs when the user confirms deletion in the modal
   const confirmDelete = async () => {
     setActionError(null);
+    setIsDeleting(true);
     try {
-      await dispatch(deleteInvoice(invoice.id)).unwrap();
-      // The component will unmount, so no need to manually close modal
-      dispatch(setSelectedInvoice(null));
+      await onDelete(invoice.id);
+      // onClose will be called by the parent after deletion
     } catch (err) {
       setActionError(err.message || "Failed to delete invoice");
-      // Keep modal open to show the error
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false); // Close modal on success or error
     }
   };
 
-  // --- Formatting ---
   const formatDate = (dateString) => {
     try {
       const date = parseISO(dateString);
@@ -76,7 +67,6 @@ function InvoiceDetails({ invoice }) {
     }
   };
 
-  // --- Calculations ---
   const taxableValue =
     invoice.subtotal ||
     invoice.items.reduce((sum, item) => sum + (item.total || 0), 0);
@@ -85,19 +75,15 @@ function InvoiceDetails({ invoice }) {
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
 
-  // --- Sub-components for better structure ---
-
-  // Header Section
   const InvoiceHeader = () => (
     <div className="text-center border-b-2 border-black pb-4 mb-4">
       <h2 className="text-3xl font-bold text-[#056b66]">TAX INVOICE</h2>
     </div>
   );
 
-  // Close Button
   const CloseButton = () => (
     <button
-      onClick={() => dispatch(setSelectedInvoice(null))}
+      onClick={onClose}
       className="absolute top-4 right-4 text-gray-500 hover:text-red-600 transition-colors rounded-full p-1 hover:bg-red-100/50"
       aria-label="Close Invoice"
     >
@@ -105,7 +91,6 @@ function InvoiceDetails({ invoice }) {
     </button>
   );
 
-  // Seller & Invoice Meta Info
   const InfoSection = () => (
     <div className="flex flex-col md:flex-row border-b-2 border-black">
       {/* LEFT - Seller */}
@@ -166,7 +151,6 @@ function InvoiceDetails({ invoice }) {
     </div>
   );
 
-  // Buyer & Bank Info
   const BuyerBankSection = () => (
     <div className="flex flex-col md:flex-row border-b-2 border-black">
       {/* Buyer */}
@@ -209,7 +193,6 @@ function InvoiceDetails({ invoice }) {
     </div>
   );
 
-  // Items Table
   const ItemsTable = () => (
     <div className="overflow-x-auto border-b-2 border-black">
       <table className="w-full text-xs border-collapse">
@@ -251,7 +234,6 @@ function InvoiceDetails({ invoice }) {
     </div>
   );
 
-  // Totals Section
   const TotalsSection = () => (
     <div className="flex justify-end border-b-2 border-black">
       <div className="w-full md:w-2/5 border-l-0 md:border-l border-black text-sm">
@@ -275,7 +257,6 @@ function InvoiceDetails({ invoice }) {
     </div>
   );
 
-  // GST Breakdown Table
   const GstTable = () => (
     <div className="mt-4">
       <p className="text-xs font-semibold mb-1">Tax Summary (Amount in INR):</p>
@@ -337,7 +318,6 @@ function InvoiceDetails({ invoice }) {
     </div>
   );
 
-  // Action Buttons
   const ActionButtons = () => (
     <div className="flex flex-col items-center justify-center gap-4 mt-8 border-t border-black pt-6">
       <div className="flex gap-4">
@@ -357,18 +337,16 @@ function InvoiceDetails({ invoice }) {
         </PDFDownloadLink>
 
         <button
-          onClick={() => setIsDeleteModalOpen(true)} // CHANGED: This now opens the modal
+          onClick={() => setIsDeleteModalOpen(true)}
           className="bg-red-600 hover:bg-red-700 text-white font-bold px-7 py-2.5 rounded-full shadow-lg transition-all flex items-center gap-2"
         >
           <Trash2 size={18} />
           Delete
         </button>
       </div>
-      {/* Error message is now shown in the modal */}
     </div>
   );
 
-  // NEW: Delete Confirmation Modal Component (Now animated)
   const DeleteConfirmationModal = () => (
     <AnimatePresence>
       {isDeleteModalOpen && (
@@ -378,7 +356,7 @@ function InvoiceDetails({ invoice }) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setIsDeleteModalOpen(false)} // Close on overlay click
+          onClick={() => setIsDeleteModalOpen(false)}
         >
           <motion.div
             variants={modalVariants}
@@ -386,7 +364,7 @@ function InvoiceDetails({ invoice }) {
             animate="visible"
             exit="exit"
             className="bg-white/80 backdrop-blur-lg rounded-xl border border-red-500/50 shadow-lg p-6 max-w-sm mx-4 text-slate-900"
-            onClick={(e) => e.stopPropagation()} // Prevent closing on modal click
+            onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-2xl font-bold mb-4 text-red-700">
               Confirm Deletion
@@ -403,17 +381,17 @@ function InvoiceDetails({ invoice }) {
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
-                disabled={status === "loading"}
+                disabled={isDeleting}
                 className="bg-gray-200 hover:bg-gray-300 text-slate-800 px-6 py-2 rounded-full font-medium transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                disabled={status === "loading"}
+                disabled={isDeleting}
                 className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-full font-medium shadow-lg transition-all disabled:opacity-50"
               >
-                {status === "loading" ? "Deleting..." : "Delete"}
+                {isDeleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </motion.div>
@@ -422,22 +400,13 @@ function InvoiceDetails({ invoice }) {
     </AnimatePresence>
   );
 
-  // --- Render ---
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-start justify-center overflow-y-auto py-10 px-4 z-40">
-      {/*
-        NOTE: For the exit animation to work, the parent component
-        that renders <InvoiceDetails /> must wrap it in an <AnimatePresence> tag.
-        e.g.:
-        <AnimatePresence>
-          {selectedInvoice && <InvoiceDetails invoice={selectedInvoice} />}
-        </AnimatePresence>
-      */}
       <motion.div
         variants={detailsVariants}
         initial="hidden"
         animate="visible"
-        exit="exit" // Added the exit prop
+        exit="exit"
         className="relative bg-white/80 backdrop-blur-lg rounded-2xl flex flex-col border-2 border-black text-slate-900 shadow-xl w-full max-w-6xl p-6 md:p-8"
       >
         <CloseButton />
@@ -448,12 +417,10 @@ function InvoiceDetails({ invoice }) {
         <TotalsSection />
         <GstTable />
         <ActionButtons />
-
-        {/* Render the confirmation modal */}
         <DeleteConfirmationModal />
       </motion.div>
     </div>
   );
-}
+};
 
-export default InvoiceDetails;
+export default DisplayInvoiceDetails;
