@@ -144,6 +144,16 @@ const invoiceSlice = createSlice({
     setSelectedInvoice: (state, action) => {
       state.selectedInvoice = action.payload;
     },
+    // --- ADD THIS REDUCER ---
+    clearInvoices: (state) => {
+      state.invoices = [];
+      state.filter = "all";
+      state.isFormOpen = false;
+      state.selectedInvoice = null;
+      state.status = "idle";
+      state.error = null;
+    },
+    // --- END OF ADDITION ---
   },
   extraReducers: (builder) => {
     builder
@@ -217,6 +227,7 @@ const invoiceSlice = createSlice({
   },
 });
 
-export const { toggleForm, setFilter, setSelectedInvoice } =
+// --- EXPORT THE NEW ACTION ---
+export const { toggleForm, setFilter, setSelectedInvoice, clearInvoices } =
   invoiceSlice.actions;
 export default invoiceSlice.reducer;

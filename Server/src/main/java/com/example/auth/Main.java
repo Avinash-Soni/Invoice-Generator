@@ -18,6 +18,7 @@ public class Main {
         // --- NEW ROUTES ---
         server.createContext("/customers", new CustomerHandler());
         server.createContext("/ledger/", new LedgerHandler()); // Handles /ledger/[name]
+        server.createContext("/items/suggestions", new ItemSuggestionHandler());
 
         server.setExecutor(null);
         System.out.println("Core Java backend server starting on port: " + port);

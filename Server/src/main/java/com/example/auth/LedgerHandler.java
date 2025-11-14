@@ -15,11 +15,47 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate; // <-- ADDED IMPORT
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class LedgerHandler implements HttpHandler {
     private final Gson gson = new Gson();
+
+    // --- NEW HELPER METHOD ---
+    private String getCurrentFinancialYear() {
+        LocalDate today = LocalDate.now();
+        int year = today.getYear();
+        int month = today.getMonthValue(); // 1-12
+        // Financial year starts in April (month 4)
+        int startYear = (month >= 4) ? year : year - 1;
+        int endYearShort = (startYear + 1) % 100; // Get last two digits
+        return String.format("%d-%02d", startYear, endYearShort);
+    }
+
+    /**
+     * Helper method to get financial year dates
+     * year format: "2025-26"
+     * Returns [ "YYYY-04-01", "YYYY+1-03-31" ]
+     */
+    private String[] getFinancialYearDates(String year) {
+        // --- MODIFIED: Removed "All" check ---
+        if (year == null || !year.matches("\\d{4}-\\d{2}")) {
+            return null;
+        }
+        try {
+            int startYear = Integer.parseInt(year.substring(0, 4));
+            int endYear = startYear + 1;
+
+            String startDate = String.format("%d-04-01", startYear);
+            String endDate = String.format("%d-03-31", endYear);
+
+            return new String[] { startDate, endDate };
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -36,6 +72,11 @@ public class LedgerHandler implements HttpHandler {
             return;
         }
 
+        String query = exchange.getRequestURI().getQuery();
+        Map<String, String> queryParams = HandlerUtils.parseQueryParams(query);
+        // --- MODIFIED: Default to current financial year ---
+        String year = queryParams.getOrDefault("year", getCurrentFinancialYear());
+
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
         String resource;
@@ -51,19 +92,22 @@ public class LedgerHandler implements HttpHandler {
             return;
         }
 
+        // Remove query string from resource if present
+        if (resource.contains("?")) {
+            resource = resource.substring(0, resource.indexOf("?"));
+        }
+
         try {
             if ("GET".equalsIgnoreCase(method)) {
-                // GET /ledger/[customerName]
                 String customerName = URLDecoder.decode(resource, StandardCharsets.UTF_8);
                 int customerId = getCustomerId(userId, customerName);
                 if (customerId == -1) {
                     sendResponse(exchange, 404, "{\"error\": \"Customer not found\"}");
                     return;
                 }
-                getLedger(exchange, userId, customerId);
+                getLedger(exchange, userId, customerId, year);
 
             } else if ("POST".equalsIgnoreCase(method)) {
-                // POST /ledger/[customerName]
                 String customerName = URLDecoder.decode(resource, StandardCharsets.UTF_8);
                 int customerId = getCustomerId(userId, customerName);
                 if (customerId == -1) {
@@ -73,20 +117,16 @@ public class LedgerHandler implements HttpHandler {
                 addLedgerEntry(exchange, userId, customerId);
 
             } else if ("PUT".equalsIgnoreCase(method)) {
-                // PUT /ledger/[entryId]
                 try {
                     int entryId = Integer.parseInt(resource);
-                    // --- MODIFIED: Call new universal update method ---
                     updateLedgerEntry(exchange, userId, entryId);
                 } catch (NumberFormatException e) {
                     sendResponse(exchange, 400, "{\"error\": \"Invalid entry ID format for PUT\"}");
                 }
 
             } else if ("DELETE".equalsIgnoreCase(method)) {
-                // DELETE /ledger/[entryId]
                 try {
                     int entryId = Integer.parseInt(resource);
-                    // --- MODIFIED: Call new universal delete method ---
                     deleteLedgerEntry(exchange, userId, entryId);
                 } catch (NumberFormatException e) {
                     sendResponse(exchange, 400, "{\"error\": \"Invalid entry ID format for DELETE\"}");
@@ -106,8 +146,8 @@ public class LedgerHandler implements HttpHandler {
         }
     }
 
+    // --- (getCustomerId method is unchanged) ---
     private int getCustomerId(int userId, String customerName) throws SQLException {
-        // ... (This method is unchanged) ...
         String sql = "SELECT id FROM customers WHERE user_id = ? AND name = ?";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -121,19 +161,74 @@ public class LedgerHandler implements HttpHandler {
         }
     }
 
-    private void getLedger(HttpExchange exchange, int userId, int customerId) throws IOException, SQLException {
-        // ... (This method is unchanged) ...
+    // --- MODIFIED: 'getLedger' now only supports year filter ---
+    private void getLedger(HttpExchange exchange, int userId, int customerId, String year) throws IOException, SQLException {
         List<LedgerEntry> entries = new ArrayList<>();
-        String sql = "SELECT id, entry_date, particulars, debit, credit, invoice_id " +
-                "FROM ledger_entries WHERE user_id = ? AND customer_id = ? " +
-                "ORDER BY entry_date, id";
 
-        try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        // --- MODIFIED: Validate year and remove "All" logic ---
+        String[] financialYearDates = getFinancialYearDates(year);
+        if (financialYearDates == null) {
+            sendResponse(exchange, 400, "{\"error\": \"Invalid or missing year format. Expected YYYY-YY.\"}");
+            return;
+        }
+
+        int sNo = 1;
+        String sql;
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            conn = DatabaseUtil.getConnection();
+
+            // --- MODIFIED: Removed 'isYearlyFilter' and 'else' block ---
+            String startDate = financialYearDates[0];
+            String endDate = financialYearDates[1];
+
+            // 1. Get Opening Balance
+            String openingSql = "SELECT SUM(debit - credit) AS openingBalance " +
+                    "FROM ledger_entries WHERE user_id = ? AND customer_id = ? AND entry_date < ?";
+
+            double openingBalance = 0;
+            try (PreparedStatement openStmt = conn.prepareStatement(openingSql)) {
+                openStmt.setInt(1, userId);
+                openStmt.setInt(2, customerId);
+                openStmt.setString(3, startDate);
+                ResultSet openRs = openStmt.executeQuery();
+                if (openRs.next()) {
+                    openingBalance = openRs.getDouble("openingBalance");
+                }
+            }
+
+            // 2. Create and add Opening Balance row
+            LedgerEntry openingEntry = new LedgerEntry();
+            openingEntry.setId(0); // Use 0 or a non-db ID
+            openingEntry.setsNo(sNo++);
+            openingEntry.setBillDate(startDate); // Use start date for sorting
+            openingEntry.setParticulars("Opening Balance");
+            if (openingBalance > 0) {
+                openingEntry.setDr(openingBalance);
+                openingEntry.setCr(0);
+            } else {
+                openingEntry.setDr(0);
+                openingEntry.setCr(-openingBalance);
+            }
+            entries.add(openingEntry);
+
+            // 3. Get entries *within* the financial year
+            sql = "SELECT id, entry_date, particulars, debit, credit, invoice_id " +
+                    "FROM ledger_entries WHERE user_id = ? AND customer_id = ? " +
+                    "AND entry_date >= ? AND entry_date <= ? " +
+                    "ORDER BY entry_date, id";
+
+            stmt = conn.prepareStatement(sql);
             stmt.setInt(1, userId);
             stmt.setInt(2, customerId);
-            ResultSet rs = stmt.executeQuery();
-            int sNo = 1;
+            stmt.setString(3, startDate);
+            stmt.setString(4, endDate);
+
+            // Execute main query and add entries
+            rs = stmt.executeQuery();
             while (rs.next()) {
                 LedgerEntry entry = new LedgerEntry();
                 entry.setId(rs.getInt("id"));
@@ -144,42 +239,41 @@ public class LedgerHandler implements HttpHandler {
                 entry.setCr(rs.getDouble("credit"));
                 entries.add(entry);
             }
+
+        } finally {
+            if (rs != null) rs.close();
+            if (stmt != null) stmt.close();
+            if (conn != null) conn.close();
         }
+
         sendResponse(exchange, 200, gson.toJson(entries));
     }
 
+
+    // --- (addLedgerEntry method is unchanged) ---
     private void addLedgerEntry(HttpExchange exchange, int userId, int customerId) throws IOException, SQLException {
-        // ... (This method is unchanged from last time) ...
         String jsonBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         JsonObject body = gson.fromJson(jsonBody, JsonObject.class);
-
         String date;
         String particulars;
         double debit = 0;
         double credit = 0;
-
-        // Check if this is a "Payment"
         if (body.has("method")) {
             date = body.get("date").getAsString();
             double amount = body.get("amount").getAsDouble();
             String method = body.get("method").getAsString();
-
             if (date == null || amount <= 0) {
                 sendResponse(exchange, 400, "{\"error\": \"Invalid date or amount for payment\"}");
                 return;
             }
-
             particulars = "PAYMENT RECEIVED " + (method != null ? method.toUpperCase() : "CASH");
             credit = amount;
-
         }
-        // Check if this is a "General Entry"
         else if (body.has("particulars")) {
             date = body.get("date").getAsString();
             particulars = body.get("particulars").getAsString();
             debit = body.has("dr") ? body.get("dr").getAsDouble() : 0;
             credit = body.has("cr") ? body.get("cr").getAsDouble() : 0;
-
             if (date == null || particulars.trim().isEmpty()) {
                 sendResponse(exchange, 400, "{\"error\": \"Date and particulars are required\"}");
                 return;
@@ -197,16 +291,12 @@ public class LedgerHandler implements HttpHandler {
                 return;
             }
         }
-        // Invalid request body
         else {
             sendResponse(exchange, 400, "{\"error\": \"Invalid request body. Missing 'method' or 'particulars'.\"}");
             return;
         }
-
-        // --- Common Insert Logic ---
         String sql = "INSERT INTO ledger_entries (user_id, customer_id, entry_date, particulars, debit, credit) " +
                 "VALUES (?, ?, ?, ?, ?, ?)";
-
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, userId);
@@ -220,73 +310,53 @@ public class LedgerHandler implements HttpHandler {
         sendResponse(exchange, 201, "{\"message\": \"Ledger entry added successfully\"}");
     }
 
-    /**
-     * --- UPDATED METHOD ---
-     * Updates any manual ledger entry (payment or general).
-     * It blocks updates to invoice-linked entries.
-     */
+    // --- (updateLedgerEntry method is unchanged) ---
     private void updateLedgerEntry(HttpExchange exchange, int userId, int entryId) throws IOException, SQLException {
         String jsonBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         JsonObject body = gson.fromJson(jsonBody, JsonObject.class);
-
         String date;
         String particulars;
         double debit = 0;
         double credit = 0;
-
-        // Check if this is a "Payment" Update
         if (body.has("method")) {
             date = body.get("date").getAsString();
             double amount = body.get("amount").getAsDouble();
             String method = body.get("method").getAsString();
-
             if (date == null || amount <= 0) {
                 sendResponse(exchange, 400, "{\"error\": \"Invalid date or amount\"}");
                 return;
             }
-
             particulars = "PAYMENT RECEIVED " + (method != null ? method.toUpperCase() : "CASH");
             credit = amount;
         }
-        // Check if this is a "General Entry" Update
         else if (body.has("particulars")) {
             date = body.get("date").getAsString();
             particulars = body.get("particulars").getAsString();
             debit = body.has("dr") ? body.get("dr").getAsDouble() : 0;
             credit = body.has("cr") ? body.get("cr").getAsDouble() : 0;
-
             if (date == null || particulars.trim().isEmpty()) {
                 sendResponse(exchange, 400, "{\"error\": \"Date and particulars are required\"}");
                 return;
             }
-            // ... (other validations from POST) ...
             if (debit < 0 || credit < 0 || (debit > 0 && credit > 0) || (debit == 0 && credit == 0)) {
                 sendResponse(exchange, 400, "{\"error\": \"Invalid debit/credit amount\"}");
                 return;
             }
         }
-        // Invalid request body
         else {
             sendResponse(exchange, 400, "{\"error\": \"Invalid request body. Missing 'method' or 'particulars'.\"}");
             return;
         }
-
-        // --- Common Update Logic ---
-        // This is the most important part: "AND invoice_id IS NULL"
-        // This prevents this endpoint from *ever* touching an invoice-generated entry.
         String sql = "UPDATE ledger_entries SET entry_date = ?, particulars = ?, debit = ?, credit = ? " +
                 "WHERE id = ? AND user_id = ? AND invoice_id IS NULL";
-
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, date);
             stmt.setString(2, particulars);
             stmt.setDouble(3, debit);
             stmt.setDouble(4, credit);
             stmt.setInt(5, entryId);
             stmt.setInt(6, userId);
-
             int rowsAffected = stmt.executeUpdate();
             if (rowsAffected > 0) {
                 sendResponse(exchange, 200, "{\"message\": \"Entry updated successfully\"}");
@@ -296,34 +366,24 @@ public class LedgerHandler implements HttpHandler {
         }
     }
 
-    /**
-     * --- UPDATED METHOD ---
-     * Deletes any manual ledger entry.
-     * It blocks deletion of invoice-linked entries.
-     */
+    // --- (deleteLedgerEntry method is unchanged) ---
     private void deleteLedgerEntry(HttpExchange exchange, int userId, int entryId) throws IOException, SQLException {
-        // This query safely targets only manual entries (debit or credit)
-        // by ensuring they are not tied to an invoice.
         String sql = "DELETE FROM ledger_entries WHERE id = ? AND user_id = ? AND invoice_id IS NULL";
-
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setInt(1, entryId);
             stmt.setInt(2, userId);
-
             int rowsAffected = stmt.executeUpdate();
             if (rowsAffected > 0) {
                 sendResponse(exchange, 200, "{\"message\": \"Entry deleted successfully\"}");
             } else {
-                // This will fail if the entry ID doesn't exist OR it's an invoice entry.
                 sendResponse(exchange, 404, "{\"error\": \"Entry not found or cannot be deleted\"}");
             }
         }
     }
 
+    // --- (sendResponse method is unchanged) ---
     private void sendResponse(HttpExchange exchange, int status, String body) throws IOException {
-        // ... (This method is unchanged) ...
         exchange.getResponseHeaders().set("Content-Type", "application/json");
         exchange.sendResponseHeaders(status, body.getBytes(StandardCharsets.UTF_8).length);
         try (OutputStream os = exchange.getResponseBody()) {

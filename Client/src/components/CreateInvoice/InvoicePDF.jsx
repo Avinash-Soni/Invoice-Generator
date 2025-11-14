@@ -1,6 +1,6 @@
 import React from "react";
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
-import headerImage from "../../assets/header.jpg";
+import headerImage from "../../assets/header.jpg"; // Make sure this path is correct
 
 const formatCurrency = (amount) => {
   const formattedAmount = (amount || 0).toFixed(2);
@@ -20,11 +20,22 @@ const formatDate = (dateString) => {
   }
 };
 
+// --- NEW HELPER ---
+// Formats a number to 0 or 2 decimal places
+const formatPercent = (percent) => {
+  const num = parseFloat(percent) || 0;
+  if (num % 1 === 0) {
+    return num.toFixed(0); // e.g., "18"
+  }
+  return num.toFixed(2); // e.g., "12.50"
+};
+
 const styles = StyleSheet.create({
   page: {
     backgroundColor: '#ffffff',
     color: 'black',
-    paddingVertical: 24,
+    paddingTop: 124, // 100px header + 24px margin
+    paddingBottom: 24, // Standard page padding
     paddingHorizontal: 72, 
     fontSize: 9,
     fontFamily: 'Helvetica',
@@ -41,7 +52,6 @@ const styles = StyleSheet.create({
     border: '1.5px solid black', 
   },
   titleContainer: {
-    marginTop: 100,
     textAlign: 'center',
     marginBottom: 0,
   },
@@ -145,7 +155,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontFamily: 'Helvetica-Bold',
   },
-  footer: {
+  signatureAndTermsContainer: {
     marginTop: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -166,16 +176,15 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     marginTop: 40,
   },
-  // MODIFIED: Removed left, right, and bottom borders
   gstTable: {
     display: 'table',
     width: 'auto',
     borderStyle: 'solid',
     borderColor: 'black',
-    borderTopWidth: 1, // Kept top border
-    borderLeftWidth: 0, // Removed
-    borderRightWidth: 0, // Removed
-    borderBottomWidth: 0, // Removed
+    borderTopWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
     marginTop: 0,
   },
   gstHeaderCell: {
@@ -201,11 +210,17 @@ const styles = StyleSheet.create({
 });
 
 function InvoicePDF({ invoice }) {
-  const taxableValue = invoice.subtotal || invoice.items.reduce((sum, item) => sum + (item.total || 0), 0);
-  const gstAmount = invoice.gstAmount || taxableValue * 0.18;
-  const totalAmount = invoice.total || taxableValue + gstAmount;
+  // --- MODIFIED: Use saved values ---
+  const taxableValue = invoice.subtotal;
+  const gstAmount = invoice.gstAmount;
+  const totalAmount = invoice.total;
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
+  
+  // Get the saved percentage
+  const savedGstPercent = parseFloat(invoice.gstPercent) || 0;
+  // Get the half percentage (for CGST/SGST)
+  const halfGstPercent = savedGstPercent / 2;
 
   return (
     <Document>
@@ -217,8 +232,9 @@ function InvoicePDF({ invoice }) {
           <Text style={styles.title}>TAX INVOICE</Text>
         </View>
 
-        <View style={styles.contentBox}>
+        <View style={styles.contentBox} wrap>
           
+          {/* ... Seller Info / Invoice Meta ... */}
           <View style={[styles.section, { borderBottomWidth: 2.5, borderBottomColor: 'black' }]}>
             <View style={[styles.halfColumn, styles.borderedColumn, styles.textXs]}>
               <Text style={[styles.bold, styles.textLg]}>DESIGNER'S SQUARE</Text>
@@ -244,6 +260,7 @@ function InvoicePDF({ invoice }) {
             </View>
           </View>
           
+          {/* ... Buyer Info / Bank Details ... */}
           <View style={styles.section}>
             <View style={[styles.halfColumn, styles.borderedColumn]}>
               <Text style={styles.bold}>BUYER :</Text>
@@ -261,8 +278,9 @@ function InvoicePDF({ invoice }) {
             </View>
           </View>
           
+          {/* ... Items Table ... */}
           <View style={styles.table}>
-            <View style={styles.tableRow}>
+            <View style={styles.tableRow} fixed>
               <View style={[styles.tableColHeader, styles.colSNo]}><Text style={styles.bold}>S.NO.</Text></View>
               <View style={[styles.tableColHeader, styles.colParticulars]}><Text style={styles.bold}>PARTICULARS</Text></View>
               <View style={[styles.tableColHeader, styles.colQty]}><Text style={styles.bold}>QTY.</Text></View>
@@ -270,7 +288,7 @@ function InvoicePDF({ invoice }) {
               <View style={[styles.tableColHeader, styles.colAmount, { borderRightWidth: 0 }]}><Text style={styles.bold}>AMOUNT</Text></View>
             </View>
             {invoice.items.map((item, index) => (
-              <View style={styles.tableRow} key={item.name}>
+              <View style={styles.tableRow} key={item.name} wrap={false}>
                 <View style={[styles.tableCol, styles.colSNo]}><Text>{String(index + 1).padStart(2, "0")}.</Text></View>
                 <View style={[styles.tableCol, styles.colParticulars]}><Text>{item.name}</Text></View>
                 <View style={[styles.tableCol, styles.colQty]}><Text>{item.quantity} {item.unit || "unit"}</Text></View>
@@ -280,10 +298,12 @@ function InvoicePDF({ invoice }) {
             ))}
           </View>
           
+          {/* ... Totals ... */}
           <View style={styles.totalsContainer}>
             <View style={styles.totalsBox}>
               <View style={styles.totalRow}>
-                <Text style={styles.bold}>GST 18%</Text>
+                {/* --- MODIFIED LINE --- */}
+                <Text style={styles.bold}>GST ({formatPercent(savedGstPercent)}%)</Text>
                 <Text>{gstAmount.toFixed(2)}</Text>
               </View>
               <View style={[styles.totalRow, styles.totalRowLast]}>
@@ -293,10 +313,12 @@ function InvoicePDF({ invoice }) {
             </View>
           </View>
           
+          {/* ... EOE Box ... */}
           <View style={styles.eoeBox}>
              <Text style={styles.eoeText}>E. & O. E</Text>
           </View>
 
+          {/* ... GST Table ... */}
           <View style={styles.gstTable}>
             {/* Header Row 1 */}
             <View style={styles.tableRow}>
@@ -328,18 +350,20 @@ function InvoicePDF({ invoice }) {
             </View>
             {/* Data Row */}
             <View style={styles.tableRow}>
-              <View style={[styles.gstDataCell, { width: '15%' }]}><Text>9989</Text></View>
+              <View style={[styles.gstDataCell, { width: '15%' }]}><Text>{invoice.hsn}</Text></View>
               <View style={[styles.gstDataCell, { width: '25%', textAlign: 'right' }]}><Text>{taxableValue.toFixed(2)}</Text></View>
-              <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>9%</Text></View>
+              {/* --- MODIFIED LINES --- */}
+              <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>{formatPercent(halfGstPercent)}%</Text></View>
               <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>{centralTax.toFixed(2)}</Text></View>
-              <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>9%</Text></View>
+              <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>{formatPercent(halfGstPercent)}%</Text></View>
               <View style={[styles.gstDataCell, { width: '15%', borderRightWidth: 0, textAlign: 'right' }]}><Text>{stateTax.toFixed(2)}</Text></View>
             </View>
           </View>
+          
+        </View> {/* End of contentBox */}
 
-        </View> 
-
-        <View style={styles.footer}>
+        {/* ... Signature and Terms ... */}
+        <View style={styles.signatureAndTermsContainer}>
           <View style={styles.termsSection}>
             <View style={{fontSize: 7, marginTop: 10}}>
               <Text style={styles.bold}>TERMS AND CONDITIONS :</Text>

@@ -88,7 +88,7 @@ export default function LedgerTable({
         <tbody>
           {ledgerEntries.map((row, index) => (
             <tr
-              key={row.id}
+              key={row.id || `ob-${index}`} // Use index for Opening Balance row
               className={`${
                 index % 2 === 0 ? "bg-white/50" : "bg-slate-50/50"
               } border-b border-[#0ea5a4]/20 text-slate-800`}
@@ -130,8 +130,11 @@ export default function LedgerTable({
                       <FileText size={18} />
                     </motion.button>
                   </div>
+                ) : row.particulars === "Opening Balance" ? (
+                  // 3. If it's the Opening Balance row, no actions
+                  <span className="text-gray-400">-</span>
                 ) : (
-                  // 2. If it's a MANUAL entry (Payment or General)
+                  // 2. If it's a MANUAL entry
                   <div className="flex justify-center items-center gap-2">
                     <motion.button
                       whileHover={{ scale: 1.2 }}

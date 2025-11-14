@@ -67,14 +67,36 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
     }
   };
 
+  // --- CORRECTED TAX LOGIC ---
+  // 1. Get GST percentage from invoice, default to 18
+  //    We check isNaN because parseFloat(0) is 0 (which is falsy)
+  //    This logic correctly handles 0, null, and undefined.
+  const parsedGst = parseFloat(invoice.gstPercent);
+  const gstPercent = isNaN(parsedGst) ? 18 : parsedGst;
+  const gstRate = gstPercent / 100; // This will be 0.00 if gstPercent is 0
+  // --- END OF FIX ---
+
+  // 2. Calculate values
   const taxableValue =
     invoice.subtotal ||
     invoice.items.reduce((sum, item) => sum + (item.total || 0), 0);
-  const gstAmount = invoice.gstAmount || taxableValue * 0.18;
-  const totalAmount = invoice.total || taxableValue + gstAmount;
+
+  // This will now correctly use gstRate (e.g., 0.00) if invoice.gstAmount is not present
+  const gstAmount = invoice.gstAmount ?? taxableValue * gstRate; // Use ?? for 0
+  const totalAmount = invoice.total ?? taxableValue + gstAmount;  // Use ?? for 0
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
 
+  // 3. Define labels needed for sub-components
+  // For the main total (e.g., "0%" or "18%")
+  const formattedGstPercent =
+    gstPercent % 1 === 0 ? gstPercent.toFixed(0) : gstPercent.toFixed(2);
+
+  // For the GstTable (e.g., "0%" or "9%")
+  const rate = gstPercent / 2;
+  const formattedRate = rate % 1 === 0 ? rate.toFixed(0) : rate.toFixed(2);
+  const rateLabel = `${formattedRate}%`;
+  
   const InvoiceHeader = () => (
     <div className="text-center border-b-2 border-black pb-4 mb-4">
       <h2 className="text-3xl font-bold text-[#056b66]">TAX INVOICE</h2>
@@ -242,7 +264,9 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
           <span>{taxableValue.toFixed(2)}</span>
         </div>
         <div className="flex justify-between border-b border-black px-4 py-2">
-          <span className="font-semibold">GST 18%</span>
+          <span className="font-semibold">
+            GST ({formattedGstPercent}%)
+          </span>
           <span>{gstAmount.toFixed(2)}</span>
         </div>
         <div className="flex justify-between px-4 py-3 bg-gray-50">
@@ -301,15 +325,15 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
           </thead>
           <tbody className="text-center">
             <tr>
-              <td className="border-r border-black py-2 px-1">9989</td>
+              <td className="border-r border-black py-2 px-1">{invoice.hsn || "N/A"}</td>
               <td className="border-r border-black py-2 px-1">
                 {taxableValue.toFixed(2)}
               </td>
-              <td className="border-r border-black py-2 px-1">9%</td>
+              <td className="border-r border-black py-2 px-1">{rateLabel}</td>
               <td className="border-r border-black py-2 px-1">
                 {centralTax.toFixed(2)}
               </td>
-              <td className="border-r border-black py-2 px-1">9%</td>
+              <td className="border-r border-black py-2 px-1">{rateLabel}</td>
               <td className="py-2 px-1">{stateTax.toFixed(2)}</td>
             </tr>
           </tbody>

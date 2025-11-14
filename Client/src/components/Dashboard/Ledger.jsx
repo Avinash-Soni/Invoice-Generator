@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   Check,
   X,
-  // ArrowLeft is no longer used, replaced by inline SVG
-  // FileText, and Edit2 are moved to LedgerTable
   Trash2,
   AlertTriangle,
   BookUser,
 } from "lucide-react";
-import api from "../../api"; // Your API helper
+import api from "../../api";
 import DisplayInvoiceDetails from "./DisplayInvoiceDetails";
-import LedgerTable from "./LedgerTable"; // <-- IMPORT THE NEW TABLE COMPONENT
+import LedgerTable from "./LedgerTable";
 
-// --- (Modal and Page variants are unchanged) ---
+// ... (modalVariants and pageVariants are unchanged) ...
 const modalVariants = {
   hidden: { opacity: 0, scale: 0.9, y: 50 },
   visible: {
@@ -47,16 +45,38 @@ const pageVariants = {
 };
 // --- (End of variants) ---
 
+// --- NEW HELPER FUNCTION ---
+const getCurrentFinancialYear = () => {
+  const today = new Date();
+  const currentMonth = today.getMonth(); // 0 = Jan, 3 = Apr
+  const currentYear = today.getFullYear();
+  let startYear;
+  if (currentMonth >= 3) {
+    // April or later, financial year started this year
+    startYear = currentYear;
+  } else {
+    // Jan, Feb, Mar, financial year started last year
+    startYear = currentYear - 1;
+  }
+  const endYearShort = (startYear + 1).toString().substring(2);
+  return `${startYear}-${endYearShort}`;
+};
+
 export default function Ledger() {
   const navigate = useNavigate();
   const { name } = useParams();
   const decodedName = decodeURIComponent(name);
 
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  // --- MODIFIED: Default to current financial year ---
+  const selectedYear = queryParams.get("year") || getCurrentFinancialYear();
+
   const [ledgerEntries, setLedgerEntries] = useState([]);
   const [totals, setTotals] = useState({ dr: 0, cr: 0, balance: 0 });
   const today = new Date().toISOString().split("T")[0];
 
-  // --- State for Payment Modal ---
+  // ... (All modal states are unchanged) ...
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isEditingPayment, setIsEditingPayment] = useState(false);
   const [currentPaymentEntry, setCurrentPaymentEntry] = useState(null);
@@ -65,8 +85,6 @@ export default function Ledger() {
     amount: "",
     method: "Cash",
   });
-
-  // --- State for General Entry Modal ---
   const [showGeneralEntryModal, setShowGeneralEntryModal] = useState(false);
   const [isEditingGeneralEntry, setIsEditingGeneralEntry] = useState(false);
   const [currentGeneralEntryId, setCurrentGeneralEntryId] = useState(null);
@@ -76,38 +94,36 @@ export default function Ledger() {
     amount: "",
     type: "dr",
   });
-
-  // --- State for Deletion ---
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState(null);
-
-  // --- State for Invoice Details Modal ---
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
-
-  // --- State for Floating Action Button ---
   const [isFabOpen, setIsFabOpen] = useState(false);
 
   useEffect(() => {
     fetchLedgerData();
-  }, [decodedName]);
+  }, [decodedName, selectedYear]);
 
+  // --- (fetchLedgerData logic is unchanged) ---
   const fetchLedgerData = async () => {
-    // ... (This function is unchanged) ...
     try {
       const rawEntries = await api.get(
-        `/ledger/${encodeURIComponent(decodedName)}`
+        `/ledger/${encodeURIComponent(decodedName)}?year=${selectedYear}`
       );
+
       let runningBalance = 0;
       let totalDr = 0;
       let totalCr = 0;
+
       const entriesWithBalance = rawEntries.map((entry) => {
         const debit = parseFloat(entry.dr) || 0;
         const credit = parseFloat(entry.cr) || 0;
-        runningBalance = runningBalance + debit - credit;
+
         totalDr += debit;
         totalCr += credit;
+        runningBalance = runningBalance + debit - credit;
+
         return {
           ...entry,
           displayDate: entry.billDate.split("-").reverse().join("."),
@@ -129,6 +145,7 @@ export default function Ledger() {
           }),
         };
       });
+
       setLedgerEntries(entriesWithBalance);
       setTotals({ dr: totalDr, cr: totalCr, balance: runningBalance });
     } catch (error) {
@@ -136,7 +153,7 @@ export default function Ledger() {
     }
   };
 
-  // --- Payment Modal Handlers (Unchanged) ---
+  // ... (All modal handlers: closePaymentModal, handlePaymentSubmit, etc. are unchanged) ...
   const closePaymentModal = () => {
     setShowPaymentModal(false);
     setIsEditingPayment(false);
@@ -187,7 +204,6 @@ export default function Ledger() {
     setShowPaymentModal(true);
   };
 
-  // --- General Entry Modal Handlers (Unchanged) ---
   const closeGeneralEntryModal = () => {
     setShowGeneralEntryModal(false);
     setIsEditingGeneralEntry(false);
@@ -247,8 +263,11 @@ export default function Ledger() {
     setShowGeneralEntryModal(true);
   };
 
-  // --- Universal Action Click Handler (in table) (Unchanged) ---
   const handleEditClick = (entry) => {
+    if (entry.particulars === "Opening Balance") {
+      alert("The Opening Balance row cannot be edited.");
+      return;
+    }
     if (entry.particulars.startsWith("PAYMENT RECEIVED")) {
       handlePaymentEditClick(entry);
     } else {
@@ -256,8 +275,12 @@ export default function Ledger() {
     }
   };
 
-  // --- Delete Handlers (Unchanged) ---
   const openDeleteConfirm = (entryId) => {
+    const entry = ledgerEntries.find((e) => e.id === entryId);
+    if (entry && entry.particulars === "Opening Balance") {
+      alert("The Opening Balance row cannot be deleted.");
+      return;
+    }
     setEntryToDelete(entryId);
     setShowDeleteConfirm(true);
   };
@@ -294,7 +317,6 @@ export default function Ledger() {
     }
   };
 
-  // --- Invoice Details Handlers (Unchanged) ---
   const handleViewInvoiceClick = async (particulars) => {
     const invoiceId = particulars.split("BY BILL ")[1];
     if (!invoiceId) {
@@ -335,9 +357,7 @@ export default function Ledger() {
       animate="visible"
       exit="exit"
     >
-      {/* --- HEADER WITH YOUR STYLED BACK BUTTON --- */}
       <div className="w-full max-w-6xl mb-10">
-        {/* Your new back button style */}
         <button
           onClick={() => navigate("/home/dashboard")}
           className="mb-4 flex items-center text-[#0ea5a4] hover:text-[#0b8b8b] font-semibold transition-colors duration-300 group px-3 py-2 rounded-lg hover:bg-white/50 backdrop-blur-sm"
@@ -359,15 +379,15 @@ export default function Ledger() {
           Back
         </button>
 
-        {/* Centered Title */}
-        <h2
-          className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] bg-clip-text text-transparent border-b-[3px] border-[#0ea5a4] w-fit mx-auto text-center"
-        >
+        <h2 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] bg-clip-text text-transparent border-b-[3px] border-[#0ea5a4] w-fit mx-auto text-center">
           Ledger Report — {decodedName}
         </h2>
+        {/* --- MODIFIED: Removed conditional '&&' --- */}
+        <p className="text-center text-lg font-semibold text-[#056b66] mt-2">
+          For Financial Year: {selectedYear}
+        </p>
       </div>
 
-      {/* --- RENDER THE NEW TABLE COMPONENT --- */}
       <LedgerTable
         decodedName={decodedName}
         ledgerEntries={ledgerEntries}
@@ -377,9 +397,8 @@ export default function Ledger() {
         isLoadingInvoice={isLoadingInvoice}
       />
 
-      {/* --- (All Modals are unchanged and remain in the parent) --- */}
+      {/* --- (All Modals and FABs are unchanged) --- */}
       <AnimatePresence>
-        {/* --- Add/Edit Payment Modal --- */}
         {showPaymentModal && (
           <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
@@ -477,7 +496,6 @@ export default function Ledger() {
           </div>
         )}
 
-        {/* --- Add/Edit General Entry Modal --- */}
         {showGeneralEntryModal && (
           <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
@@ -591,7 +609,6 @@ export default function Ledger() {
           </div>
         )}
 
-        {/* --- Delete Payment Modal --- */}
         {showDeleteConfirm && (
           <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
@@ -633,7 +650,6 @@ export default function Ledger() {
           </div>
         )}
 
-        {/* --- Render the Invoice Details Modal --- */}
         {showInvoiceDetails && selectedInvoice && (
           <DisplayInvoiceDetails
             invoice={selectedInvoice}
@@ -646,13 +662,10 @@ export default function Ledger() {
         )}
       </AnimatePresence>
 
-      {/* --- FLOATING ACTION BUTTON (FAB) GROUP (Unchanged) --- */}
       <div className="fixed bottom-8 right-8 z-40 flex flex-col items-end gap-3">
-        {/* Animated sub-buttons */}
         <AnimatePresence>
           {isFabOpen && (
             <>
-              {/* General Entry Button */}
               <motion.button
                 onClick={() => {
                   setShowGeneralEntryModal(true);
@@ -668,8 +681,6 @@ export default function Ledger() {
                 <BookUser size={20} />
                 <span>Add General Entry</span>
               </motion.button>
-
-              {/* Payment Entry Button */}
               <motion.button
                 onClick={() => {
                   setShowPaymentModal(true);
@@ -697,8 +708,6 @@ export default function Ledger() {
             </>
           )}
         </AnimatePresence>
-
-        {/* Main FAB Toggle Button */}
         <motion.button
           onClick={() => setIsFabOpen(!isFabOpen)}
           className="bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] hover:from-[#056b66] hover:to-[#0ea5a4] text-white p-5 rounded-full shadow-xl"

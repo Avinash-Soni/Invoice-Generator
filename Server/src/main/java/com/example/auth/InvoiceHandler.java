@@ -2,7 +2,7 @@ package com.example.auth;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
-import com.google.gson.reflect.TypeToken; // <-- IMPORT THIS
+import com.google.gson.reflect.TypeToken;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +19,6 @@ import java.util.UUID;
 public class InvoiceHandler implements HttpHandler {
     private final Gson gson = new Gson();
 
-    // ... (Invoice nested classes remain identical) ...
     static class Invoice {
         String id;
         String clientName;
@@ -35,6 +36,9 @@ public class InvoiceHandler implements HttpHandler {
         double subtotal;
         double gstAmount;
         double total;
+        String hsn;
+        String gstMode;
+        double gstPercent;
 
         static class Item {
             String name;
@@ -93,20 +97,18 @@ public class InvoiceHandler implements HttpHandler {
                 responseBody = getInvoices(userId);
                 statusCode = 200;
             } else if ("POST".equalsIgnoreCase(method) && "/invoices".equals(path)) {
-                responseBody = createInvoice(exchange, userId);
+                responseBody = createInvoice(exchange, userId); // <-- MODIFIED
                 statusCode = 201;
             } else if ("PUT".equalsIgnoreCase(method) && "/invoices".equals(path)) {
                 responseBody = updateInvoice(exchange, userId);
                 statusCode = 200;
-            } else if (path.startsWith("/invoices/")) { // --- MODIFIED: Grouped logic for /invoices/[id] ---
+            } else if (path.startsWith("/invoices/")) {
                 String invoiceId = path.substring("/invoices/".length());
 
                 if ("GET".equalsIgnoreCase(method)) {
-                    // --- NEW ---
                     responseBody = getInvoiceById(invoiceId, userId);
                     statusCode = 200;
                 } else if ("DELETE".equalsIgnoreCase(method)) {
-                    // --- MOVED ---
                     responseBody = deleteInvoice(invoiceId, userId);
                     statusCode = 200;
                 } else {
@@ -122,7 +124,12 @@ public class InvoiceHandler implements HttpHandler {
             }
         } catch (SQLException e) {
             statusCode = 500;
-            responseBody = "{\"error\": \"Database error: " + e.getMessage() + "\"}";
+            // Check for duplicate key violation
+            if (e.getErrorCode() == 1062) { // 1062 is MySQL's duplicate entry code
+                responseBody = "{\"error\": \"Database error: A duplicate invoice ID was detected. Please try again.\"}";
+            } else {
+                responseBody = "{\"error\": \"Database error: " + e.getMessage() + "\"}";
+            }
             e.printStackTrace(); // For debugging
         } catch (JsonSyntaxException e) {
             statusCode = 400;
@@ -139,9 +146,68 @@ public class InvoiceHandler implements HttpHandler {
         sendResponse(exchange, statusCode, responseBody);
     }
 
+    // --- HELPER METHODS ---
+
+    private String getFinancialYear() {
+        LocalDate today = LocalDate.now();
+        int year = today.getYear();
+        int startYear;
+
+        if (today.getMonth().getValue() >= 4) { // April (4) or later
+            startYear = year;
+        } else {
+            startYear = year - 1;
+        }
+        String endYear = String.valueOf(startYear + 1).substring(2);
+        return startYear + "-" + endYear;
+    }
+
+    /**
+     * Generates the next sequential invoice ID (e.g., "DS/2025-26/0001")
+     * by querying the database for the highest existing number *for this user*
+     * in the current FY.
+     * This MUST be called from within an active transaction.
+     */
+    // --- MODIFIED ---
+    private String generateNextInvoiceId(Connection conn, int userId) throws SQLException {
+        String fy = getFinancialYear();
+        String prefix = "DS/" + fy + "/"; // e.g., "DS/2025-26/"
+        String nextId;
+        int nextNumber = 1;
+
+        // Find the highest ID *for this user* in this FY
+        // Lock the rows to prevent race conditions (two requests from the same user)
+        String sql = "SELECT id FROM invoices WHERE user_id = ? AND id LIKE ? ORDER BY id DESC LIMIT 1 FOR UPDATE";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId); // <-- ADDED
+            stmt.setString(2, prefix + "%"); // <-- INDEX CHANGED
+
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                String lastId = rs.getString("id");
+                try {
+                    String numPart = lastId.substring(prefix.length()); // "0001"
+                    int lastNum = Integer.parseInt(numPart);
+                    nextNumber = lastNum + 1;
+                } catch (Exception e) {
+                    System.err.println("Error parsing last invoice ID: " + lastId + ". Resetting to 1.");
+                    nextNumber = 1;
+                }
+            }
+        }
+
+        nextId = prefix + String.format("%04d", nextNumber); // "DS/2025-26/0001"
+        return nextId;
+    }
+    // --- END MODIFICATION ---
+
+
     private String getInvoices(int userId) throws SQLException {
+        // (This function is unchanged)
         List<Invoice> invoices = new ArrayList<>();
-        String sql = "SELECT id, client_name, amount, status, items, bill_from, bill_to, project_description, payment_terms, invoice_date, terms_of_payment, suppliers_ref, other_ref, subtotal, gst_amount, total FROM invoices WHERE user_id = ?";
+        String sql = "SELECT id, client_name, amount, status, items, bill_from, bill_to, project_description, payment_terms, invoice_date, terms_of_payment, suppliers_ref, other_ref, subtotal, gst_amount, total, hsn, gst_mode, gst_percent FROM invoices WHERE user_id = ?";
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, userId);
@@ -153,7 +219,6 @@ public class InvoiceHandler implements HttpHandler {
                 invoice.amount = rs.getDouble("amount");
                 invoice.status = rs.getString("status");
 
-                // --- FIX: Correctly deserialize generic List<Item> ---
                 invoice.items = gson.fromJson(rs.getString("items"), new TypeToken<List<Invoice.Item>>(){}.getType());
 
                 invoice.billFrom = gson.fromJson(rs.getString("bill_from"), Invoice.BillFrom.class);
@@ -167,16 +232,19 @@ public class InvoiceHandler implements HttpHandler {
                 invoice.subtotal = rs.getDouble("subtotal");
                 invoice.gstAmount = rs.getDouble("gst_amount");
                 invoice.total = rs.getDouble("total");
+                invoice.hsn = rs.getString("hsn");
+                invoice.gstMode = rs.getString("gst_mode");
+                invoice.gstPercent = rs.getDouble("gst_percent");
                 invoices.add(invoice);
             }
         }
         return gson.toJson(invoices);
     }
 
-    // --- NEW METHOD: To fetch a single invoice ---
     private String getInvoiceById(String invoiceId, int userId) throws SQLException {
+        // (This function is unchanged)
         Invoice invoice = null;
-        String sql = "SELECT id, client_name, amount, status, items, bill_from, bill_to, project_description, payment_terms, invoice_date, terms_of_payment, suppliers_ref, other_ref, subtotal, gst_amount, total FROM invoices WHERE id = ? AND user_id = ?";
+        String sql = "SELECT id, client_name, amount, status, items, bill_from, bill_to, project_description, payment_terms, invoice_date, terms_of_payment, suppliers_ref, other_ref, subtotal, gst_amount, total, hsn, gst_mode, gst_percent FROM invoices WHERE id = ? AND user_id = ?";
 
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -192,7 +260,6 @@ public class InvoiceHandler implements HttpHandler {
                 invoice.clientName = rs.getString("client_name");
                 invoice.amount = rs.getDouble("amount");
                 invoice.status = rs.getString("status");
-                // --- FIX: Correctly deserialize generic List<Item> ---
                 invoice.items = gson.fromJson(rs.getString("items"), new TypeToken<List<Invoice.Item>>(){}.getType());
                 invoice.billFrom = gson.fromJson(rs.getString("bill_from"), Invoice.BillFrom.class);
                 invoice.billTo = gson.fromJson(rs.getString("bill_to"), Invoice.BillTo.class);
@@ -205,11 +272,13 @@ public class InvoiceHandler implements HttpHandler {
                 invoice.subtotal = rs.getDouble("subtotal");
                 invoice.gstAmount = rs.getDouble("gst_amount");
                 invoice.total = rs.getDouble("total");
+                invoice.hsn = rs.getString("hsn");
+                invoice.gstMode = rs.getString("gst_mode");
+                invoice.gstPercent = rs.getDouble("gst_percent");
             }
         }
 
         if (invoice == null) {
-            // Send 404 status via exception
             throw new IllegalArgumentException("Invoice not found or unauthorized.");
         }
 
@@ -218,31 +287,30 @@ public class InvoiceHandler implements HttpHandler {
 
 
     private String createInvoice(HttpExchange exchange, int userId) throws IOException, SQLException {
-        // ... (This method is unchanged) ...
         String jsonBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         System.out.println("Received create payload: " + jsonBody);
 
         Invoice invoice = gson.fromJson(jsonBody, Invoice.class);
         validateInvoice(invoice);
-        invoice.id = (invoice.id != null && !invoice.id.isEmpty()) ? invoice.id : UUID.randomUUID().toString();
+
         invoice.status = invoice.status != null ? invoice.status : "pending";
-        // Calculations from frontend
         invoice.amount = calculateAmount(invoice.items);
-        invoice.subtotal = invoice.subtotal != 0 ? invoice.subtotal : invoice.amount;
-        invoice.gstAmount = invoice.gstAmount != 0 ? invoice.gstAmount : invoice.subtotal * 0.18; // Assuming 18% GST
-        invoice.total = invoice.total != 0 ? invoice.total : invoice.subtotal + invoice.gstAmount;
 
-
-        String sql = "INSERT INTO invoices (id, user_id, client_name, amount, status, items, bill_from, bill_to, project_description, payment_terms, invoice_date, terms_of_payment, suppliers_ref, other_ref, subtotal, gst_amount, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO invoices (id, user_id, client_name, amount, status, items, bill_from, bill_to, project_description, payment_terms, invoice_date, terms_of_payment, suppliers_ref, other_ref, subtotal, gst_amount, total, hsn, gst_mode, gst_percent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         Connection conn = null;
         try {
             conn = DatabaseUtil.getConnection();
             conn.setAutoCommit(false); // Start transaction
 
+            // --- MODIFIED ---
+            // Generate the new ID *for this user*
+            invoice.id = generateNextInvoiceId(conn, userId);
+            // ---
+
             // 1. Insert Invoice
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, invoice.id);
+                stmt.setString(1, invoice.id); // Use the new, generated ID
                 stmt.setInt(2, userId);
                 stmt.setString(3, invoice.clientName);
                 stmt.setDouble(4, invoice.amount);
@@ -252,13 +320,16 @@ public class InvoiceHandler implements HttpHandler {
                 stmt.setString(8, gson.toJson(invoice.billTo));
                 stmt.setString(9, invoice.projectDescription);
                 stmt.setString(10, invoice.paymentTerms);
-                stmt.setString(11, invoice.invoiceDate); // Should be YYYY-MM-DD
+                stmt.setString(11, invoice.invoiceDate);
                 stmt.setString(12, invoice.termsOfPayment);
                 stmt.setString(13, invoice.suppliersRef);
                 stmt.setString(14, invoice.otherRef);
                 stmt.setDouble(15, invoice.subtotal);
                 stmt.setDouble(16, invoice.gstAmount);
                 stmt.setDouble(17, invoice.total);
+                stmt.setString(18, invoice.hsn);
+                stmt.setString(19, invoice.gstMode);
+                stmt.setDouble(20, invoice.gstPercent);
                 stmt.executeUpdate();
             }
 
@@ -270,14 +341,15 @@ public class InvoiceHandler implements HttpHandler {
             try (PreparedStatement ledgerStmt = conn.prepareStatement(ledgerSql)) {
                 ledgerStmt.setInt(1, userId);
                 ledgerStmt.setInt(2, customerId);
-                ledgerStmt.setString(3, invoice.id);
+                ledgerStmt.setString(3, invoice.id); // Use the new, generated ID
                 ledgerStmt.setString(4, invoice.invoiceDate);
-                ledgerStmt.setString(5, "BY BILL " + invoice.id); // Shortened ID for particulars
+                ledgerStmt.setString(5, "BY BILL " + invoice.id);
                 ledgerStmt.setDouble(6, invoice.total);
                 ledgerStmt.executeUpdate();
             }
 
             conn.commit(); // Commit transaction
+
             return "{\"message\": \"Invoice created successfully\", \"id\": \"" + invoice.id + "\"}";
 
         } catch (SQLException e) {
@@ -292,7 +364,7 @@ public class InvoiceHandler implements HttpHandler {
     }
 
     private String updateInvoice(HttpExchange exchange, int userId) throws IOException, SQLException {
-        // ... (This method is unchanged) ...
+        // (This function is unchanged, it already uses id AND user_id)
         String jsonBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         Invoice invoice = gson.fromJson(jsonBody, Invoice.class);
         validateInvoice(invoice);
@@ -300,13 +372,9 @@ public class InvoiceHandler implements HttpHandler {
             throw new IllegalArgumentException("Invoice ID is required.");
         }
 
-        // Recalculate totals
         invoice.amount = calculateAmount(invoice.items);
-        invoice.subtotal = invoice.subtotal != 0 ? invoice.subtotal : invoice.amount;
-        invoice.gstAmount = invoice.gstAmount != 0 ? invoice.gstAmount : invoice.subtotal * 0.18;
-        invoice.total = invoice.total != 0 ? invoice.total : invoice.subtotal + invoice.gstAmount;
 
-        String sql = "UPDATE invoices SET client_name = ?, amount = ?, status = ?, items = ?, bill_from = ?, bill_to = ?, project_description = ?, payment_terms = ?, invoice_date = ?, terms_of_payment = ?, suppliers_ref = ?, other_ref = ?, subtotal = ?, gst_amount = ?, total = ? WHERE id = ? AND user_id = ?";
+        String sql = "UPDATE invoices SET client_name = ?, amount = ?, status = ?, items = ?, bill_from = ?, bill_to = ?, project_description = ?, payment_terms = ?, invoice_date = ?, terms_of_payment = ?, suppliers_ref = ?, other_ref = ?, subtotal = ?, gst_amount = ?, total = ?, hsn = ?, gst_mode = ?, gst_percent = ? WHERE id = ? AND user_id = ?";
 
         Connection conn = null;
         try {
@@ -331,13 +399,16 @@ public class InvoiceHandler implements HttpHandler {
                 stmt.setDouble(13, invoice.subtotal);
                 stmt.setDouble(14, invoice.gstAmount);
                 stmt.setDouble(15, invoice.total);
-                stmt.setString(16, invoice.id);
-                stmt.setInt(17, userId);
+                stmt.setString(16, invoice.hsn);
+                stmt.setString(17, invoice.gstMode);
+                stmt.setDouble(18, invoice.gstPercent);
+                stmt.setString(19, invoice.id);
+                stmt.setInt(20, userId);
                 rows = stmt.executeUpdate();
             }
 
             if (rows > 0) {
-                // 2. Find or Create new Customer (in case clientName changed)
+                // 2. Find or Create new Customer
                 int customerId = findOrCreateCustomer(conn, userId, invoice.clientName);
 
                 // 3. Update Ledger Entry
@@ -368,15 +439,12 @@ public class InvoiceHandler implements HttpHandler {
     }
 
     private String deleteInvoice(String invoiceId, int userId) throws SQLException {
-        // ... (This method is unchanged) ...
+        // (This function is unchanged, it already uses id AND user_id)
         Connection conn = null;
         try {
             conn = DatabaseUtil.getConnection();
             conn.setAutoCommit(false);
 
-            // 1. Delete the ledger entry first
-            // Note: FK in ledger_entries is ON DELETE SET NULL, so this step is optional
-            // but good for cleanup.
             String ledgerSql = "DELETE FROM ledger_entries WHERE invoice_id = ? AND user_id = ?";
             try (PreparedStatement ledgerStmt = conn.prepareStatement(ledgerSql)) {
                 ledgerStmt.setString(1, invoiceId);
@@ -384,7 +452,6 @@ public class InvoiceHandler implements HttpHandler {
                 ledgerStmt.executeUpdate();
             }
 
-            // 2. Delete the invoice
             String sql = "DELETE FROM invoices WHERE id = ? AND user_id = ?";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setString(1, invoiceId);
@@ -408,8 +475,7 @@ public class InvoiceHandler implements HttpHandler {
     }
 
     private int findOrCreateCustomer(Connection conn, int userId, String clientName) throws SQLException {
-        // ... (This method is unchanged) ...
-        // Try to find
+        // (This function is unchanged)
         String selectSql = "SELECT id FROM customers WHERE user_id = ? AND name = ?";
         try (PreparedStatement selectStmt = conn.prepareStatement(selectSql)) {
             selectStmt.setInt(1, userId);
@@ -420,7 +486,6 @@ public class InvoiceHandler implements HttpHandler {
             }
         }
 
-        // Not found, create
         String insertSql = "INSERT INTO customers (user_id, name) VALUES (?, ?)";
         try (PreparedStatement insertStmt = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
             insertStmt.setInt(1, userId);
@@ -435,7 +500,7 @@ public class InvoiceHandler implements HttpHandler {
     }
 
     private String markAsPaid(HttpExchange exchange, int userId) throws IOException, SQLException {
-        // ... (This method is unchanged) ...
+        // (This function is unchanged)
         String jsonBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         Invoice invoice = gson.fromJson(jsonBody, Invoice.class);
         if (invoice.id == null) throw new IllegalArgumentException("Invoice ID is required.");
@@ -451,18 +516,21 @@ public class InvoiceHandler implements HttpHandler {
     }
 
     private double calculateAmount(List<Invoice.Item> items) {
-        // ... (This method is unchanged) ...
+        // (This function is unchanged)
         if (items == null) return 0;
         return items.stream().mapToDouble(i -> i.quantity * i.rate).sum();
     }
 
     private void validateInvoice(Invoice invoice) {
-        // ... (This method is unchanged) ...
+        // (This function is unchanged)
         if (invoice.clientName == null || invoice.clientName.trim().isEmpty() ||
                 invoice.items == null || invoice.items.isEmpty() ||
                 invoice.billFrom == null || invoice.billTo == null ||
-                invoice.invoiceDate == null || invoice.invoiceDate.trim().isEmpty()) {
-            throw new IllegalArgumentException("Missing or invalid required fields: clientName, items, billFrom, billTo, or invoiceDate.");
+                invoice.invoiceDate == null || invoice.invoiceDate.trim().isEmpty() ||
+                invoice.hsn == null || invoice.hsn.trim().isEmpty() ||
+                invoice.gstMode == null || invoice.gstMode.trim().isEmpty() ||
+                invoice.gstPercent < 0) {
+            throw new IllegalArgumentException("Missing or invalid required fields: clientName, items, billFrom, billTo, invoiceDate, HSN, GstMode, or GstPercent.");
         }
         for (Invoice.Item i : invoice.items) {
             if (i.name == null || i.name.trim().isEmpty() || i.quantity <= 0 || i.rate < 0)
@@ -475,7 +543,7 @@ public class InvoiceHandler implements HttpHandler {
     }
 
     private void sendResponse(HttpExchange exchange, int status, String body) throws IOException {
-        // ... (This method is unchanged) ...
+        // (This function is unchanged)
         exchange.getResponseHeaders().set("Content-Type", "application/json");
         exchange.sendResponseHeaders(status, body.getBytes(StandardCharsets.UTF_8).length);
         try (OutputStream os = exchange.getResponseBody()) {

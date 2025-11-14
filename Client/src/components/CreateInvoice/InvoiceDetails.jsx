@@ -5,7 +5,6 @@ import { deleteInvoice, setSelectedInvoice } from "../../store/InvoiceSlice";
 import InvoicePDF from "./InvoicePDF";
 import { Download, X, Trash2 } from "lucide-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-// Import AnimatePresence for exit animations
 import { motion, AnimatePresence } from "framer-motion";
 
 const detailsVariants = {
@@ -16,7 +15,6 @@ const detailsVariants = {
     scale: 1,
     transition: { duration: 0.4, ease: "easeOut" },
   },
-  // Added an exit animation
   exit: {
     opacity: 0,
     y: 50,
@@ -25,7 +23,6 @@ const detailsVariants = {
   },
 };
 
-// NEW: Variants for the delete modal
 const modalVariants = {
   hidden: { opacity: 0, scale: 0.9, y: 20 },
   visible: {
@@ -47,26 +44,18 @@ function InvoiceDetails({ invoice }) {
   const dispatch = useDispatch();
   const { status } = useSelector((state) => state.invoices);
   const [actionError, setActionError] = useState(null);
-
-  // State to control the delete confirmation modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  // --- Actions ---
-
-  // This function now runs when the user confirms deletion in the modal
   const confirmDelete = async () => {
     setActionError(null);
     try {
       await dispatch(deleteInvoice(invoice.id)).unwrap();
-      // The component will unmount, so no need to manually close modal
       dispatch(setSelectedInvoice(null));
     } catch (err) {
       setActionError(err.message || "Failed to delete invoice");
-      // Keep modal open to show the error
     }
   };
 
-  // --- Formatting ---
   const formatDate = (dateString) => {
     try {
       const date = parseISO(dateString);
@@ -76,25 +65,23 @@ function InvoiceDetails({ invoice }) {
     }
   };
 
-  // --- Calculations ---
-  const taxableValue =
-    invoice.subtotal ||
-    invoice.items.reduce((sum, item) => sum + (item.total || 0), 0);
-  const gstAmount = invoice.gstAmount || taxableValue * 0.18;
-  const totalAmount = invoice.total || taxableValue + gstAmount;
+  const taxableValue = invoice.subtotal;
+  const gstAmount = invoice.gstAmount; 
+  const totalAmount = invoice.total; 
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
+  
+  // --- NEW: Get saved percentage ---
+  const savedGstPercent = parseFloat(invoice.gstPercent) || 0;
 
-  // --- Sub-components for better structure ---
+  // --- Sub-components ---
 
-  // Header Section
   const InvoiceHeader = () => (
     <div className="text-center border-b-2 border-black pb-4 mb-4">
       <h2 className="text-3xl font-bold text-[#056b66]">TAX INVOICE</h2>
     </div>
   );
 
-  // Close Button
   const CloseButton = () => (
     <button
       onClick={() => dispatch(setSelectedInvoice(null))}
@@ -105,7 +92,6 @@ function InvoiceDetails({ invoice }) {
     </button>
   );
 
-  // Seller & Invoice Meta Info
   const InfoSection = () => (
     <div className="flex flex-col md:flex-row border-b-2 border-black">
       {/* LEFT - Seller */}
@@ -166,7 +152,6 @@ function InvoiceDetails({ invoice }) {
     </div>
   );
 
-  // Buyer & Bank Info
   const BuyerBankSection = () => (
     <div className="flex flex-col md:flex-row border-b-2 border-black">
       {/* Buyer */}
@@ -209,7 +194,6 @@ function InvoiceDetails({ invoice }) {
     </div>
   );
 
-  // Items Table
   const ItemsTable = () => (
     <div className="overflow-x-auto border-b-2 border-black">
       <table className="w-full text-xs border-collapse">
@@ -251,96 +235,115 @@ function InvoiceDetails({ invoice }) {
     </div>
   );
 
-  // Totals Section
-  const TotalsSection = () => (
-    <div className="flex justify-end border-b-2 border-black">
-      <div className="w-full md:w-2/5 border-l-0 md:border-l border-black text-sm">
-        <div className="flex justify-between border-b border-black px-4 py-2">
-          <span className="font-semibold">Taxable Value</span>
-          <span>{taxableValue.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between border-b border-black px-4 py-2">
-          <span className="font-semibold">GST 18%</span>
-          <span>{gstAmount.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between px-4 py-3 bg-gray-50">
-          <span className="font-bold text-base text-[#056b66]">
-            TOTAL AMOUNT
-          </span>
-          <span className="font-bold text-base text-[#056b66]">
-            ₹{totalAmount.toFixed(2)}
-          </span>
+  // --- MODIFIED COMPONENT ---
+  const TotalsSection = () => {
+    // Format the saved percentage
+    const formattedPercent = savedGstPercent % 1 === 0 ? savedGstPercent.toFixed(0) : savedGstPercent.toFixed(2);
+
+    return (
+      <div className="flex justify-end border-b-2 border-black">
+        <div className="w-full md:w-2/5 border-l-0 md:border-l border-black text-sm">
+          <div className="flex justify-between border-b border-black px-4 py-2">
+            <span className="font-semibold">Taxable Value</span>
+            <span>{taxableValue.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between border-b border-black px-4 py-2">
+            <span className="font-semibold">
+              {/* Show the saved percentage */}
+              GST ({formattedPercent}%)
+            </span>
+            <span>{gstAmount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between px-4 py-3 bg-gray-50">
+            <span className="font-bold text-base text-[#056b66]">
+              TOTAL AMOUNT
+            </span>
+            <span className="font-bold text-base text-[#056b66]">
+              ₹{totalAmount.toFixed(2)}
+            </span>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  // GST Breakdown Table
-  const GstTable = () => (
-    <div className="mt-4">
-      <p className="text-xs font-semibold mb-1">Tax Summary (Amount in INR):</p>
-      <div className="border border-black rounded-md overflow-hidden">
-        <table className="w-full text-xs border-collapse">
-          <thead className="bg-gray-50 border-b border-black text-center">
-            <tr className="border-b border-black">
-              <th
-                rowSpan={2}
-                className="border-r border-black py-2 px-1 font-medium align-middle"
-              >
-                HSN/SAC
-              </th>
-              <th
-                rowSpan={2}
-                className="border-r border-black py-2 px-1 font-medium align-middle"
-              >
-                TAXABLE VALUE
-              </th>
-              <th
-                colSpan={2}
-                className="border-r border-black py-2 px-1 font-medium"
-              >
-                CENTRAL TAX (CGST)
-              </th>
-              <th colSpan={2} className="py-2 px-1 font-medium">
-                STATE TAX (SGST)
-              </th>
-            </tr>
-            <tr className="bg-gray-100/50">
-              <th className="border-r border-black py-1 px-1 font-normal">
-                RATE
-              </th>
-              <th className="border-r border-black py-1 px-1 font-normal">
-                AMOUNT
-              </th>
-              <th className="border-r border-black py-1 px-1 font-normal">
-                RATE
-              </th>
-              <th className="py-1 px-1 font-normal">AMOUNT</th>
-            </tr>
-          </thead>
-          <tbody className="text-center">
-            <tr>
-              <td className="border-r border-black py-2 px-1">9989</td>
-              <td className="border-r border-black py-2 px-1">
-                {taxableValue.toFixed(2)}
-              </td>
-              <td className="border-r border-black py-2 px-1">9%</td>
-              <td className="border-r border-black py-2 px-1">
-                {centralTax.toFixed(2)}
-              </td>
-              <td className="border-r border-black py-2 px-1">9%</td>
-              <td className="py-2 px-1">{stateTax.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
+  // --- MODIFIED COMPONENT ---
+  const GstTable = () => {
+    // Calculate the rate (CGST/SGST)
+    const rate = savedGstPercent / 2;
+    // Format it
+    const formattedRate = rate % 1 === 0 ? rate.toFixed(0) : rate.toFixed(2);
+    const rateLabel = `${formattedRate}%`;
+
+    return (
+      <div className="mt-4">
+        <p className="text-xs font-semibold mb-1">Tax Summary (Amount in INR):</p>
+        <div className="border border-black rounded-md overflow-hidden">
+          <table className="w-full text-xs border-collapse">
+            <thead className="bg-gray-50 border-b border-black text-center">
+              <tr className="border-b border-black">
+                <th
+                  rowSpan={2}
+                  className="border-r border-black py-2 px-1 font-medium align-middle"
+                >
+                  HSN/SAC
+                </th>
+                <th
+                  rowSpan={2}
+                  className="border-r border-black py-2 px-1 font-medium align-middle"
+                >
+                  TAXABLE VALUE
+                </th>
+                <th
+                  colSpan={2}
+                  className="border-r border-black py-2 px-1 font-medium"
+                >
+                  CENTRAL TAX (CGST)
+                </th>
+                <th colSpan={2} className="py-2 px-1 font-medium">
+                  STATE TAX (SGST)
+                </th>
+              </tr>
+              <tr className="bg-gray-100/50">
+                <th className="border-r border-black py-1 px-1 font-normal">
+                  RATE
+                </th>
+                <th className="border-r border-black py-1 px-1 font-normal">
+                  AMOUNT
+                </th>
+                <th className="border-r border-black py-1 px-1 font-normal">
+                  RATE
+                </th>
+                <th className="py-1 px-1 font-normal">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody className="text-center">
+              <tr>
+                <td className="border-r border-black py-2 px-1">
+                  {invoice.hsn || "N/A"}
+                </td>
+                <td className="border-r border-black py-2 px-1">
+                  {taxableValue.toFixed(2)}
+                </td>
+                {/* --- MODIFIED RATE --- */}
+                <td className="border-r border-black py-2 px-1">{rateLabel}</td>
+                <td className="border-r border-black py-2 px-1">
+                  {centralTax.toFixed(2)}
+                </td>
+                {/* --- MODIFIED RATE --- */}
+                <td className="border-r border-black py-2 px-1">{rateLabel}</td>
+                <td className="py-2 px-1">{stateTax.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  // Action Buttons
   const ActionButtons = () => (
     <div className="flex flex-col items-center justify-center gap-4 mt-8 border-t border-black pt-6">
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-4">
         <PDFDownloadLink
           document={<InvoicePDF invoice={invoice} />}
           fileName={`invoice-${invoice?.id || "unknown"}.pdf`}
@@ -357,18 +360,16 @@ function InvoiceDetails({ invoice }) {
         </PDFDownloadLink>
 
         <button
-          onClick={() => setIsDeleteModalOpen(true)} // CHANGED: This now opens the modal
+          onClick={() => setIsDeleteModalOpen(true)}
           className="bg-red-600 hover:bg-red-700 text-white font-bold px-7 py-2.5 rounded-full shadow-lg transition-all flex items-center gap-2"
         >
           <Trash2 size={18} />
           Delete
         </button>
       </div>
-      {/* Error message is now shown in the modal */}
     </div>
   );
 
-  // NEW: Delete Confirmation Modal Component (Now animated)
   const DeleteConfirmationModal = () => (
     <AnimatePresence>
       {isDeleteModalOpen && (
@@ -378,7 +379,7 @@ function InvoiceDetails({ invoice }) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setIsDeleteModalOpen(false)} // Close on overlay click
+          onClick={() => setIsDeleteModalOpen(false)}
         >
           <motion.div
             variants={modalVariants}
@@ -386,7 +387,7 @@ function InvoiceDetails({ invoice }) {
             animate="visible"
             exit="exit"
             className="bg-white/80 backdrop-blur-lg rounded-xl border border-red-500/50 shadow-lg p-6 max-w-sm mx-4 text-slate-900"
-            onClick={(e) => e.stopPropagation()} // Prevent closing on modal click
+            onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-2xl font-bold mb-4 text-red-700">
               Confirm Deletion
@@ -425,19 +426,11 @@ function InvoiceDetails({ invoice }) {
   // --- Render ---
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-start justify-center overflow-y-auto py-10 px-4 z-40">
-      {/*
-        NOTE: For the exit animation to work, the parent component
-        that renders <InvoiceDetails /> must wrap it in an <AnimatePresence> tag.
-        e.g.:
-        <AnimatePresence>
-          {selectedInvoice && <InvoiceDetails invoice={selectedInvoice} />}
-        </AnimatePresence>
-      */}
       <motion.div
         variants={detailsVariants}
         initial="hidden"
         animate="visible"
-        exit="exit" // Added the exit prop
+        exit="exit"
         className="relative bg-white/80 backdrop-blur-lg rounded-2xl flex flex-col border-2 border-black text-slate-900 shadow-xl w-full max-w-6xl p-6 md:p-8"
       >
         <CloseButton />
@@ -448,8 +441,6 @@ function InvoiceDetails({ invoice }) {
         <TotalsSection />
         <GstTable />
         <ActionButtons />
-
-        {/* Render the confirmation modal */}
         <DeleteConfirmationModal />
       </motion.div>
     </div>
