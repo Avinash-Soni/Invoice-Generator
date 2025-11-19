@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { FaFileInvoiceDollar, FaTable } from "react-icons/fa";
+import { FaTable } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { HiDocumentCurrencyRupee } from "react-icons/hi2";
 
 const cardVariants = {
   hidden: { opacity: 0, rotateY: 90 },
@@ -29,7 +30,7 @@ const Cards = () => {
         className="bg-white/80 backdrop-blur-md rounded-2xl flex flex-col gap-4 items-center justify-center p-6 w-full max-w-sm border-2 border-[#0ea5a4]/50 text-gray-900"
       >
         <div className="text-5xl text-[#056b66]">
-          <FaFileInvoiceDollar />
+          <HiDocumentCurrencyRupee />
         </div>
         <h1 className="text-xl font-bold text-[#0ea5a4]">Invoice Generator</h1>
         <p className="text-sm text-gray-700 text-center">

@@ -20,8 +20,7 @@ const formatDate = (dateString) => {
   }
 };
 
-// --- NEW HELPER ---
-// Formats a number to 0 or 2 decimal places
+// Helper: Formats a number to 0 decimal places if whole, else 2
 const formatPercent = (percent) => {
   const num = parseFloat(percent) || 0;
   if (num % 1 === 0) {
@@ -34,8 +33,8 @@ const styles = StyleSheet.create({
   page: {
     backgroundColor: '#ffffff',
     color: 'black',
-    paddingTop: 124, // 100px header + 24px margin
-    paddingBottom: 24, // Standard page padding
+    paddingTop: 124,
+    paddingBottom: 24,
     paddingHorizontal: 72, 
     fontSize: 9,
     fontFamily: 'Helvetica',
@@ -210,17 +209,17 @@ const styles = StyleSheet.create({
 });
 
 function InvoicePDF({ invoice }) {
-  // --- MODIFIED: Use saved values ---
   const taxableValue = invoice.subtotal;
   const gstAmount = invoice.gstAmount;
   const totalAmount = invoice.total;
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
   
-  // Get the saved percentage
   const savedGstPercent = parseFloat(invoice.gstPercent) || 0;
-  // Get the half percentage (for CGST/SGST)
   const halfGstPercent = savedGstPercent / 2;
+
+  // --- CHECK IF GST IS APPLICABLE ---
+  const showGst = gstAmount > 0;
 
   return (
     <Document>
@@ -229,7 +228,8 @@ function InvoicePDF({ invoice }) {
         <Image src={headerImage} style={styles.newHeader} fixed />
         
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>TAX INVOICE</Text>
+          {/* --- CHANGE: Toggle Title --- */}
+          <Text style={styles.title}>{showGst ? "TAX INVOICE" : "INVOICE"}</Text>
         </View>
 
         <View style={styles.contentBox} wrap>
@@ -241,7 +241,12 @@ function InvoicePDF({ invoice }) {
               <Text style={[styles.bold, { marginTop: 2 }]}>{invoice.billFrom?.streetAddress || "Second Floor, LIG-405, Dindayal Nagar, Bhilai"}</Text>
               <Text>{invoice.billFrom?.city || "Distt. Durg (C.G.)"} Pin - {invoice.billFrom?.postCode || "490020"}</Text>
               <Text>Mo. No. : 77228 28880, 86029 48880</Text>
-              <Text>GSTIN : {invoice.billFrom?.gstin || "22DPRPS5517H3ZG"}</Text>
+              
+              {/* --- CHANGE: Hide Seller GSTIN if no tax --- */}
+              {showGst && (
+                <Text>GSTIN : {invoice.billFrom?.gstin || "22DPRPS5517H3ZG"}</Text>
+              )}
+              
               <Text>E-MAIL : {invoice.billFrom?.email || "designersquarebhilai@gmail.com"}</Text>
             </View>
             <View style={styles.halfColumn}>
@@ -267,7 +272,12 @@ function InvoicePDF({ invoice }) {
               <Text style={[styles.bold, styles.textBase]}>{invoice.clientName}</Text>
               <Text>{invoice.billTo?.streetAddress || "N/A"}</Text>
               <Text>{invoice.billTo?.city}, {invoice.billTo?.postCode}</Text>
-              <Text><Text style={styles.bold}>GST No. :</Text> {invoice.billTo?.gstin || "N/A"}</Text>
+              
+              {/* --- CHANGE: Hide Buyer GST No if no tax --- */}
+              {showGst && (
+                 <Text><Text style={styles.bold}>GST No. :</Text> {invoice.billTo?.gstin || "N/A"}</Text>
+              )}
+              
             </View>
             <View style={styles.halfColumn}>
               <Text style={styles.bold}>BANK DETAILS</Text>
@@ -302,7 +312,6 @@ function InvoicePDF({ invoice }) {
           <View style={styles.totalsContainer}>
             <View style={styles.totalsBox}>
               <View style={styles.totalRow}>
-                {/* --- MODIFIED LINE --- */}
                 <Text style={styles.bold}>GST ({formatPercent(savedGstPercent)}%)</Text>
                 <Text>{gstAmount.toFixed(2)}</Text>
               </View>
@@ -318,47 +327,48 @@ function InvoicePDF({ invoice }) {
              <Text style={styles.eoeText}>E. & O. E</Text>
           </View>
 
-          {/* ... GST Table ... */}
-          <View style={styles.gstTable}>
-            {/* Header Row 1 */}
-            <View style={styles.tableRow}>
-              <View style={[styles.gstHeaderCell, { width: '15%', borderBottomWidth: 0, justifyContent: 'center' }]}>
-                <Text>HSN/SAC</Text>
+          {/* --- GST Table (Condition added: ONLY RENDER IF GST > 0) --- */}
+          {showGst && (
+            <View style={styles.gstTable}>
+              {/* Header Row 1 */}
+              <View style={styles.tableRow}>
+                <View style={[styles.gstHeaderCell, { width: '15%', borderBottomWidth: 0, justifyContent: 'center' }]}>
+                  <Text>HSN/SAC</Text>
+                </View>
+                <View style={[styles.gstHeaderCell, { width: '25%', borderBottomWidth: 0, justifyContent: 'center' }]}>
+                  <Text>TAXABLE VALUE</Text>
+                </View>
+                <View style={[styles.gstHeaderCell, { width: '30%' }]}>
+                  <Text>CENTRAL TAX (CGST)</Text>
+                </View>
+                <View style={[styles.gstHeaderCell, { width: '30%', borderRightWidth: 0 }]}>
+                  <Text>STATE TAX (SGST)</Text>
+                </View>
               </View>
-              <View style={[styles.gstHeaderCell, { width: '25%', borderBottomWidth: 0, justifyContent: 'center' }]}>
-                <Text>TAXABLE VALUE</Text>
+              {/* Header Row 2 (for sub-headers) */}
+              <View style={styles.tableRow}>
+                <View style={[styles.gstHeaderCell, { width: '15%', borderTopWidth: 0 }]}>
+                  <Text> </Text>{/* Filler for rowspan */}
+                </View>
+                <View style={[styles.gstHeaderCell, { width: '25%', borderTopWidth: 0 }]}>
+                  <Text> </Text>{/* Filler for rowspan */}
+                </View>
+                <View style={[styles.gstHeaderCell, { width: '15%', fontSize: 8 }]}><Text>RATE</Text></View>
+                <View style={[styles.gstHeaderCell, { width: '15%', fontSize: 8 }]}><Text>AMOUNT</Text></View>
+                <View style={[styles.gstHeaderCell, { width: '15%', fontSize: 8 }]}><Text>RATE</Text></View>
+                <View style={[styles.gstHeaderCell, { width: '15%', fontSize: 8, borderRightWidth: 0 }]}><Text>AMOUNT</Text></View>
               </View>
-              <View style={[styles.gstHeaderCell, { width: '30%' }]}>
-                <Text>CENTRAL TAX (CGST)</Text>
-              </View>
-              <View style={[styles.gstHeaderCell, { width: '30%', borderRightWidth: 0 }]}>
-                <Text>STATE TAX (SGST)</Text>
+              {/* Data Row */}
+              <View style={styles.tableRow}>
+                <View style={[styles.gstDataCell, { width: '15%' }]}><Text>{invoice.hsn}</Text></View>
+                <View style={[styles.gstDataCell, { width: '25%', textAlign: 'right' }]}><Text>{taxableValue.toFixed(2)}</Text></View>
+                <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>{formatPercent(halfGstPercent)}%</Text></View>
+                <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>{centralTax.toFixed(2)}</Text></View>
+                <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>{formatPercent(halfGstPercent)}%</Text></View>
+                <View style={[styles.gstDataCell, { width: '15%', borderRightWidth: 0, textAlign: 'right' }]}><Text>{stateTax.toFixed(2)}</Text></View>
               </View>
             </View>
-            {/* Header Row 2 (for sub-headers) */}
-            <View style={styles.tableRow}>
-              <View style={[styles.gstHeaderCell, { width: '15%', borderTopWidth: 0 }]}>
-                <Text> </Text>{/* Filler for rowspan */}
-              </View>
-              <View style={[styles.gstHeaderCell, { width: '25%', borderTopWidth: 0 }]}>
-                <Text> </Text>{/* Filler for rowspan */}
-              </View>
-              <View style={[styles.gstHeaderCell, { width: '15%', fontSize: 8 }]}><Text>RATE</Text></View>
-              <View style={[styles.gstHeaderCell, { width: '15%', fontSize: 8 }]}><Text>AMOUNT</Text></View>
-              <View style={[styles.gstHeaderCell, { width: '15%', fontSize: 8 }]}><Text>RATE</Text></View>
-              <View style={[styles.gstHeaderCell, { width: '15%', fontSize: 8, borderRightWidth: 0 }]}><Text>AMOUNT</Text></View>
-            </View>
-            {/* Data Row */}
-            <View style={styles.tableRow}>
-              <View style={[styles.gstDataCell, { width: '15%' }]}><Text>{invoice.hsn}</Text></View>
-              <View style={[styles.gstDataCell, { width: '25%', textAlign: 'right' }]}><Text>{taxableValue.toFixed(2)}</Text></View>
-              {/* --- MODIFIED LINES --- */}
-              <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>{formatPercent(halfGstPercent)}%</Text></View>
-              <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>{centralTax.toFixed(2)}</Text></View>
-              <View style={[styles.gstDataCell, { width: '15%', textAlign: 'right' }]}><Text>{formatPercent(halfGstPercent)}%</Text></View>
-              <View style={[styles.gstDataCell, { width: '15%', borderRightWidth: 0, textAlign: 'right' }]}><Text>{stateTax.toFixed(2)}</Text></View>
-            </View>
-          </View>
+          )}
           
         </View> {/* End of contentBox */}
 

@@ -527,7 +527,6 @@ public class InvoiceHandler implements HttpHandler {
                 invoice.items == null || invoice.items.isEmpty() ||
                 invoice.billFrom == null || invoice.billTo == null ||
                 invoice.invoiceDate == null || invoice.invoiceDate.trim().isEmpty() ||
-                invoice.hsn == null || invoice.hsn.trim().isEmpty() ||
                 invoice.gstMode == null || invoice.gstMode.trim().isEmpty() ||
                 invoice.gstPercent < 0) {
             throw new IllegalArgumentException("Missing or invalid required fields: clientName, items, billFrom, billTo, invoiceDate, HSN, GstMode, or GstPercent.");
