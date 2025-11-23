@@ -8,15 +8,13 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // check session on mount
-    axios
-      .get("http://localhost:8080/check-session", { withCredentials: true })
-      .then((res) => setUser(res.data.loggedIn))
+    axios.get("http://localhost:8080/check-session", { withCredentials: true })
+      .then(res => setUser(res.data.loggedIn))
       .catch(() => setUser(false));
   }, []);
 
   const logout = () => {
-    axios
-      .post("http://localhost:8080/logout", {}, { withCredentials: true })
+    axios.post("http://localhost:8080/logout", {}, { withCredentials: true })
       .then(() => setUser(false))
       .catch(() => setUser(false));
   };

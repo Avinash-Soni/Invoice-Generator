@@ -10,11 +10,11 @@ const generateYearOptions = () => {
 
   // Financial year starts in April (month 3)
   // If it's Jan-Mar (0, 1, 2), the *current* financial year is the *previous* calendar year
-  let latestFinYearStart = currentMonth < 3 ? currentYear - 1 : currentYear;
+  let latestFinYearStart = (currentMonth < 3) ? currentYear - 1 : currentYear;
 
   // --- MODIFIED: Removed "All" from options ---
-  const options = [];
-
+  const options = []; 
+  
   // Go back 10 years
   for (let i = 0; i < 10; i++) {
     const start = latestFinYearStart - i;
@@ -32,9 +32,9 @@ const CustomerSummary = () => {
 
   // --- NEW: State for year filter ---
   const [yearOptions] = useState(generateYearOptions());
-
+  
   // --- MODIFIED: Default to the first year in the list (which is now the current one) ---
-  const [selectedYear, setSelectedYear] = useState(yearOptions[0]);
+  const [selectedYear, setSelectedYear] = useState(yearOptions[0]); 
   const [isLoading, setIsLoading] = useState(true);
   // ---
 
@@ -153,10 +153,7 @@ const CustomerSummary = () => {
 
             {/* --- NEW: Year Filter Dropdown --- */}
             <div className="flex items-center gap-2">
-              <label
-                htmlFor="year-select"
-                className="font-semibold text-[#056b66]"
-              >
+              <label htmlFor="year-select" className="font-semibold text-[#056b66]">
                 Financial Year:
               </label>
               <select
@@ -203,19 +200,13 @@ const CustomerSummary = () => {
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td
-                        colSpan="5"
-                        className="text-center p-8 text-slate-600 font-medium"
-                      >
+                      <td colSpan="5" className="text-center p-8 text-slate-600 font-medium">
                         Loading customer data...
                       </td>
                     </tr>
                   ) : customers.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan="5"
-                        className="text-center p-8 text-slate-600 font-medium"
-                      >
+                      <td colSpan="5" className="text-center p-8 text-slate-600 font-medium">
                         No customers found.
                       </td>
                     </tr>
@@ -245,9 +236,7 @@ const CustomerSummary = () => {
                               value={editing.value}
                               onChange={handleChange}
                               onBlur={handleBlur}
-                              onKeyDown={(e) =>
-                                e.key === "Enter" && handleBlur()
-                              }
+                              onKeyDown={(e) => e.key === "Enter" && handleBlur()}
                               autoFocus
                               className="border border-gray-300 px-2 py-1 w-full rounded-md focus:ring-2 focus:ring-[#0ea5a4] focus:outline-none"
                             />
@@ -273,9 +262,7 @@ const CustomerSummary = () => {
                             onClick={() =>
                               // --- MODIFIED: Pass selectedYear as query param ---
                               navigate(
-                                `/home/ledger/${encodeURIComponent(
-                                  cust.name
-                                )}?year=${selectedYear}`
+                                `/home/ledger/${encodeURIComponent(cust.name)}?year=${selectedYear}`
                               )
                             }
                             className="bg-gradient-to-r from-[#0ea5a4] to-[#0bd1c5] hover:from-[#056b66] hover:to-[#0ea5a4] text-white font-semibold px-4 py-2 rounded-full shadow-md transition-transform transform hover:scale-105"

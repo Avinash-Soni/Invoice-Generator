@@ -11,6 +11,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
 
   const printRef = useRef();
   const headerRef = useRef();
+  // contentRef is no longer needed
 
   const [generating, setGenerating] = useState(false);
   const [ledgerEntries, setLedgerEntries] = useState([]); // Keep for totals
@@ -31,7 +32,9 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
     const fetchLedgerForPdf = async () => {
       try {
         const yearQuery =
-          selectedYear && selectedYear !== "All" ? `?year=${selectedYear}` : "";
+          selectedYear && selectedYear !== "All"
+            ? `?year=${selectedYear}`
+            : "";
         const rawEntries = await api.get(
           `/ledger/${encodeURIComponent(decodedName)}${yearQuery}`
         );
@@ -76,7 +79,11 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
 
         // --- NEW CHUNKING LOGIC ---
         const chunks = [];
-        for (let i = 0; i < entriesWithBalance.length; i += ENTRIES_PER_PAGE) {
+        for (
+          let i = 0;
+          i < entriesWithBalance.length;
+          i += ENTRIES_PER_PAGE
+        ) {
           chunks.push(entriesWithBalance.slice(i, i + ENTRIES_PER_PAGE));
         }
         setPagedEntries(chunks); // This is our array of pages
@@ -94,63 +101,41 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
     try {
       setGenerating(true);
       const headerElement = headerRef.current;
-      // Get all the page content elements
+      // Get *all* the page content elements
       const contentElements =
         printRef.current.querySelectorAll(".pdf-page-content");
 
       if (!headerElement) {
         throw new Error("Header element not found.");
       }
-
+      
       // Handle "No entries found" case
       if (contentElements.length === 0) {
         if (ledgerEntries.length === 0) {
-          const noEntriesElement =
-            printRef.current.querySelector(".no-entries-page");
-          if (!noEntriesElement) throw new Error("Print elements not found.");
+           const noEntriesElement = printRef.current.querySelector(".no-entries-page");
+           if (!noEntriesElement) throw new Error("Print elements not found.");
 
-          // Just print the single "no entries" page
-          const headerCanvas = await html2canvas(headerElement, {
-            scale: 2,
-            useCORS: true,
-          });
-          const contentCanvas = await html2canvas(noEntriesElement, {
-            scale: 2,
-            useCORS: true,
-          });
-
-          const pdf = new jsPDF("p", "mm", "a4");
-          const pdfWidth = pdf.internal.pageSize.getWidth();
-          const leftMargin = 25.4;
-          const usableWidth = pdfWidth - leftMargin * 2;
-
-          const headerHeight =
-            (headerCanvas.height * pdfWidth) / headerCanvas.width;
-          const contentHeight =
-            (contentCanvas.height * usableWidth) / contentCanvas.width;
-
-          pdf.addImage(
-            headerCanvas.toDataURL("image/png", 1.0),
-            "PNG",
-            0,
-            0,
-            pdfWidth,
-            headerHeight
-          );
-          pdf.addImage(
-            contentCanvas.toDataURL("image/png", 1.0),
-            "PNG",
-            leftMargin,
-            headerHeight + 10,
-            usableWidth,
-            contentHeight
-          );
-
-          pdf.save(`${decodedName}-ledger.pdf`);
-          return;
+           // Just print the single "no entries" page
+           const headerCanvas = await html2canvas(headerElement, { scale: 2, useCORS: true });
+           const contentCanvas = await html2canvas(noEntriesElement, { scale: 2, useCORS: true });
+           
+           const pdf = new jsPDF("p", "mm", "a4");
+           const pdfWidth = pdf.internal.pageSize.getWidth();
+           const leftMargin = 25.4;
+           const usableWidth = pdfWidth - leftMargin * 2;
+           
+           const headerHeight = (headerCanvas.height * pdfWidth) / headerCanvas.width;
+           const contentHeight = (contentCanvas.height * usableWidth) / contentCanvas.width;
+           
+           pdf.addImage(headerCanvas.toDataURL("image/png", 1.0), "PNG", 0, 0, pdfWidth, headerHeight);
+           pdf.addImage(contentCanvas.toDataURL("image/png", 1.0), "PNG", leftMargin, headerHeight + 10, usableWidth, contentHeight);
+           
+           pdf.save(`${decodedName}-ledger.pdf`);
+           return;
         }
         throw new Error("Content elements not found.");
       }
+
 
       // 1. Create PDF
       const pdf = new jsPDF({
@@ -176,11 +161,10 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
         backgroundColor: "#ffffff",
       });
       const headerImgData = headerCanvas.toDataURL("image/png", 1.0);
-      // Calculate header height relative to full PDF width
-      const headerHeight =
-        (headerCanvas.height * pdfWidth) / headerCanvas.width;
+      // Calculate header height *relative to full PDF width*
+      const headerHeight = (headerCanvas.height * pdfWidth) / headerCanvas.width;
 
-      // Use the larger of the calculated height or your 1.5in request
+      // Use the *larger* of the calculated height or your 1.5in request
       const finalTopMargin = Math.max(headerHeight, topMarginMM);
 
       // 4. Process Content Pages (in a loop)
@@ -194,7 +178,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
         });
         const contentImgData = contentCanvas.toDataURL("image/png", 1.0);
 
-        // Calculate content height relative to usable (margined) width
+        // Calculate content height *relative to usable (margined) width*
         const contentHeight =
           (contentCanvas.height * usableWidth) / contentCanvas.width;
 
@@ -218,7 +202,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
           contentImgData,
           "PNG",
           leftMargin,
-          finalTopMargin, // Place below header (at 1.5in or header height)
+          finalTopMargin, // Place *below* header (at 1.5in or header height)
           usableWidth,
           contentHeight
         );
@@ -275,13 +259,13 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
           </div>
           <div
             style={{
-              display: "flex", // 1. Use Flexbox layout
-              justifyContent: "center", // 2. Center content Horizontally
-              alignItems: "center", // 3. Center content Vertically
-              textAlign: "center", // 4. Ensure multi-line text stays centered
+             display: "flex",            // 1. Use Flexbox layout
+              justifyContent: "center",   // 2. Center content Horizontally
+              alignItems: "center",       // 3. Center content Vertically
+              textAlign: "center",        // 4. Ensure multi-line text stays centered
               background: "#a20000",
               color: "white",
-              padding: "12px 10px 25px 10px",
+              padding: "12px 10px 25px 10px",       
               fontWeight: "bold",
               fontSize: "20px",
               borderRadius: "6px",
@@ -315,21 +299,19 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
               >
                 <div>
                   {/* Year on first page only */}
-                  {pageIndex === 0 &&
-                    selectedYear &&
-                    selectedYear !== "All" && (
-                      <div
-                        style={{
-                          textAlign: "center",
-                          fontWeight: "bold",
-                          fontSize: "14px",
-                          color: "#a20000",
-                          marginBottom: "20px",
-                        }}
-                      >
-                        For Financial Year: {selectedYear}
-                      </div>
-                    )}
+                  {pageIndex === 0 && selectedYear && selectedYear !== "All" && (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        fontWeight: "bold",
+                        fontSize: "14px",
+                        color: "#a20000",
+                        marginBottom: "20px",
+                      }}
+                    >
+                      For Financial Year: {selectedYear}
+                    </div>
+                  )}
 
                   {/* Table for this page */}
                   <table
@@ -340,7 +322,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                       marginBottom: "10px",
                     }}
                   >
-                    {/* Headers on every page */}
+                    {/* Headers on *every* page */}
                     <thead>
                       <tr
                         style={{
@@ -348,34 +330,13 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                           border: "1px solid #000",
                         }}
                       >
-                        <th
-                          style={{
-                            padding: "8px",
-                            border: "1px solid #000",
-                            textAlign: "left",
-                          }}
-                        >
+                        <th style={{ padding: "8px", border: "1px solid #000", textAlign: "left" }}>
                           NAME
                         </th>
-                        <th
-                          colSpan="2"
-                          style={{
-                            padding: "12px 10px 22px 10px",
-                            border: "1px solid #000",
-                            fontWeight: "bold",
-                            color: "#a20000",
-                            fontSize: "18px",
-                          }}
-                        >
+                        <th colSpan="2" style={{ padding: "12px 10px 22px 10px", border: "1px solid #000", fontWeight: "bold", color: "#a20000", fontSize: "18px" }}>
                           {decodedName}
                         </th>
-                        <th
-                          style={{
-                            padding: "8px",
-                            border: "1px solid #000",
-                            textAlign: "center",
-                          }}
-                        >
+                        <th style={{ padding: "8px", border: "1px solid #000", textAlign: "center" }}>
                           DEBIT
                           <br />
                           <span style={{ fontWeight: "bold", color: "#000" }}>
@@ -385,13 +346,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                             })}
                           </span>
                         </th>
-                        <th
-                          style={{
-                            padding: "8px",
-                            border: "1px solid #000",
-                            textAlign: "center",
-                          }}
-                        >
+                        <th style={{ padding: "8px", border: "1px solid #000", textAlign: "center" }}>
                           CREDIT
                           <br />
                           <span style={{ fontWeight: "bold", color: "#000" }}>
@@ -401,13 +356,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                             })}
                           </span>
                         </th>
-                        <th
-                          style={{
-                            padding: "8px",
-                            border: "1px solid #000",
-                            textAlign: "center",
-                          }}
-                        >
+                        <th style={{ padding: "8px", border: "1px solid #000", textAlign: "center" }}>
                           BALANCE
                           <br />
                           <span style={{ fontWeight: "bold", color: "red" }}>
@@ -419,64 +368,16 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                         </th>
                       </tr>
                       <tr style={{ background: "#a20000", color: "white" }}>
-                        <th
-                          style={{
-                            border: "1px solid #000",
-                            padding: "12px 10px 22px 10px",
-                          }}
-                        >
-                          {" "}
-                          S.NO.{" "}
-                        </th>
-                        <th
-                          style={{
-                            border: "1px solid #000",
-                            padding: "12px 10px 22px 10px",
-                          }}
-                        >
-                          {" "}
-                          BILL DATE{" "}
-                        </th>
-                        <th
-                          style={{
-                            border: "1px solid #000",
-                            padding: "12px 10px 22px 10px",
-                          }}
-                        >
-                          {" "}
-                          PARTICULARS{" "}
-                        </th>
-                        <th
-                          style={{
-                            border: "1px solid #000",
-                            padding: "12px 10px 22px 10px",
-                          }}
-                        >
-                          {" "}
-                          DR.{" "}
-                        </th>
-                        <th
-                          style={{
-                            border: "1px solid #000",
-                            padding: "12px 10px 22px 10px",
-                          }}
-                        >
-                          {" "}
-                          CR.{" "}
-                        </th>
-                        <th
-                          style={{
-                            border: "1px solid #000",
-                            padding: "12px 10px 22px 10px",
-                          }}
-                        >
-                          {" "}
-                          BALANCE{" "}
-                        </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> S.NO. </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> BILL DATE </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> PARTICULARS </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> DR. </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> CR. </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> BALANCE </th>
                       </tr>
                     </thead>
 
-                    {/* Entries for this page */}
+                    {/* Entries for *this page* */}
                     <tbody>
                       {pageEntries.map((row, index) => (
                         <tr
@@ -486,64 +387,29 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                             pageBreakInside: "avoid",
                           }}
                         >
-                          <td
-                            style={{
-                              border: "1px solid #000",
-                              textAlign: "center",
-                              padding: "5px",
-                            }}
-                          >
+                          <td style={{ border: "1px solid #000", textAlign: "center", padding: "5px" }}>
                             {row.sNo}
                           </td>
-                          <td
-                            style={{
-                              border: "1px solid #000",
-                              textAlign: "center",
-                              padding: "5px",
-                            }}
-                          >
+                          <td style={{ border: "1px solid #000", textAlign: "center", padding: "5px" }}>
                             {row.billDate}
                           </td>
-                          <td
-                            style={{
-                              border: "1px solid #000",
-                              padding: "5px 8px",
-                            }}
-                          >
+                          <td style={{ border: "1px solid #000", padding: "5px 8px" }}>
                             {row.particulars}
                           </td>
-                          <td
-                            style={{
-                              border: "1px solid #000",
-                              textAlign: "right",
-                              padding: "5px 8px",
-                            }}
-                          >
+                          <td style={{ border: "1px solid #000", textAlign: "right", padding: "5px 8px" }}>
                             {row.dr}
                           </td>
-                          <td
-                            style={{
-                              border: "1px solid #000",
-                              textAlign: "right",
-                              padding: "5px 8px",
-                            }}
-                          >
+                          <td style={{ border: "1px solid #000", textAlign: "right", padding: "5px 8px" }}>
                             {row.cr}
                           </td>
-                          <td
-                            style={{
-                              border: "1px solid #000",
-                              textAlign: "right",
-                              padding: "5px 8px",
-                            }}
-                          >
+                          <td style={{ border: "1px solid #000", textAlign: "right", padding: "5px 8px" }}>
                             {row.balance}
                           </td>
                         </tr>
                       ))}
                     </tbody>
 
-                    {/* Totals row on last page only */}
+                    {/* Totals row on *last page only* */}
                     {pageIndex === pagedEntries.length - 1 && (
                       <tfoot style={{ pageBreakInside: "avoid" }}>
                         <tr
@@ -553,49 +419,22 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                             fontWeight: "bold",
                           }}
                         >
-                          <td
-                            colSpan={3}
-                            style={{
-                              textAlign: "center",
-                              padding: "12px 10px 22px 10px",
-                              border: "1px solid #000",
-                            }}
-                          >
+                          <td colSpan={3} style={{ textAlign: "center", padding: "12px 10px 22px 10px", border: "1px solid #000" }}>
                             TOTAL
                           </td>
-                          <td
-                            style={{
-                              textAlign: "right",
-                              padding: "12px 10px 22px 10px",
-                              border: "1px solid #000",
-                            }}
-                          >
+                          <td style={{ textAlign: "right", padding: "12px 10px 22px 10px", border: "1px solid #000" }}>
                             {totals.dr.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </td>
-                          <td
-                            style={{
-                              textAlign: "right",
-                              padding: "12px 10px 22px 10px",
-                              border: "1px solid #000",
-                            }}
-                          >
+                          <td style={{ textAlign: "right", padding: "12px 10px 22px 10px", border: "1px solid #000" }}>
                             {totals.cr.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </td>
-                          <td
-                            style={{
-                              textAlign: "right",
-                              padding: "12px 10px 22px 10px",
-                              border: "1px solid #a20000",
-                              color: "#ffcccc",
-                              background: "#a20000",
-                            }}
-                          >
+                          <td style={{ textAlign: "right", padding: "12px 10px 22px 10px", border: "1px solid #a20000", color: "#ffcccc", background: "#a20000" }}>
                             {totals.balance.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -607,7 +446,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                   </table>
                 </div>
 
-                {/* Generated-by on last page only */}
+                {/* Generated-by on *last page only* */}
                 {pageIndex === pagedEntries.length - 1 && (
                   <div
                     style={{
@@ -619,16 +458,15 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                       pageBreakInside: "avoid",
                     }}
                   >
-                    Generated by{" "}
-                    <b style={{ color: "#a20000" }}>Designer Square</b> •{" "}
-                    {new Date().toLocaleDateString()}
+                    Generated by <b style={{ color: "#a20000" }}>Designer Square</b>{" "}
+                    • {new Date().toLocaleDateString()}
                   </div>
                 )}
               </div>
             ))
           ) : (
             // "No entries" message
-            <div
+            <div 
               className="no-entries-page"
               style={{ width: "570px", margin: "0 auto", minHeight: "200px" }}
             >
@@ -640,7 +478,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                   fontWeight: "bold",
                 }}
               >
-                ⚠ No ledger entries found for <b>{decodedName}</b>
+                ⚠️ No ledger entries found for <b>{decodedName}</b>
               </p>
             </div>
           )}

@@ -167,7 +167,6 @@ function InvoiceForm({ invoice }) {
       return setFormError("Client name is required");
     if (!formData.invoiceDate.trim())
       return setFormError("Invoice date is required");
-    if (!formData.hsn.trim()) return setFormError("HSN/SAC code is required");
     if (
       formData.items.length === 0 ||
       formData.items.some((i) => !i.name.trim() || i.quantity <= 0 || i.rate < 0)
@@ -225,12 +224,30 @@ function InvoiceForm({ invoice }) {
   const updateItem = (index, field, value) => {
     const items = [...formData.items];
     const item = { ...items[index] };
-    if (field === "quantity")
+
+    if (field === "quantity") {
+      // Keep quantity as integer logic (unchanged)
       item.quantity = value === "" ? "" : Math.max(1, parseInt(value, 10) || 1);
-    else if (field === "rate")
-      item.rate = value === "" ? "" : Math.max(0, parseFloat(value) || 0);
-    else item[field] = value;
-    item.total = (item.quantity || 1) * (item.rate || 0);
+    } else if (field === "rate") {
+      // --- CHANGE STARTS HERE ---
+      // Only update if the value is empty OR looks like a valid number/decimal
+      // This allows "10." to exist in state while typing
+      if (value === "" || /^\d*\.?\d*$/.test(value)) {
+        item.rate = value;
+      } else {
+        // If user types a letter or second dot, ignore it
+        return;
+      }
+      // --- CHANGE ENDS HERE ---
+    } else {
+      item[field] = value;
+    }
+
+    // Safe calculation for Total
+    const qty = parseFloat(item.quantity) || 0;
+    const rate = parseFloat(item.rate) || 0;
+    item.total = qty * rate;
+
     items[index] = item;
     setFormData({ ...formData, items });
   };
@@ -431,7 +448,6 @@ function InvoiceForm({ invoice }) {
                       setFormData({ ...formData, hsn: e.target.value })
                     }
                     className={inputClass}
-                    required
                   />
                 </label>
               </div>

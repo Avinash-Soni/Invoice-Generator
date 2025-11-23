@@ -1,9 +1,10 @@
 import { format, parseISO } from "date-fns";
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteInvoice, setSelectedInvoice } from "../../store/InvoiceSlice";
+// --- ADDED toggleForm to imports ---
+import { deleteInvoice, setSelectedInvoice, toggleForm } from "../../store/InvoiceSlice"; 
 import InvoicePDF from "./InvoicePDF";
-import { Download, X, Trash2 } from "lucide-react";
+import { Download, X, Trash2, Edit } from "lucide-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -39,12 +40,20 @@ const modalVariants = {
   },
 };
 
-// Main component
+// --- REMOVED 'onEdit' from props ---
 function InvoiceDetails({ invoice }) {
   const dispatch = useDispatch();
   const { status } = useSelector((state) => state.invoices);
   const [actionError, setActionError] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // --- NEW: Handle Edit Logic Directly ---
+  const handleEdit = () => {
+    // 1. Ensure this specific invoice is set as the "Selected" one in Redux
+    dispatch(setSelectedInvoice(invoice));
+    // 2. Open the InvoiceForm
+    dispatch(toggleForm());
+  };
 
   const confirmDelete = async () => {
     setActionError(null);
@@ -65,20 +74,27 @@ function InvoiceDetails({ invoice }) {
     }
   };
 
-  const taxableValue = invoice.subtotal;
-  const gstAmount = invoice.gstAmount; 
-  const totalAmount = invoice.total; 
+  // --- FIX: Ensure these are numbers before math or .toFixed() ---
+  const taxableValue = Number(invoice.subtotal) || 0;
+  const gstAmount = Number(invoice.gstAmount) || 0;
+  const totalAmount = Number(invoice.total) || 0;
+  
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
-  
-  // --- NEW: Get saved percentage ---
+
+  // Get saved percentage
   const savedGstPercent = parseFloat(invoice.gstPercent) || 0;
+
+  // Check if this is a GST bill
+  const showGst = gstAmount > 0;
 
   // --- Sub-components ---
 
   const InvoiceHeader = () => (
     <div className="text-center border-b-2 border-black pb-4 mb-4">
-      <h2 className="text-3xl font-bold text-[#056b66]">TAX INVOICE</h2>
+      <h2 className="text-3xl font-bold text-[#056b66]">
+        {showGst ? "TAX INVOICE" : "INVOICE"}
+      </h2>
     </div>
   );
 
@@ -96,8 +112,8 @@ function InvoiceDetails({ invoice }) {
     <div className="flex flex-col md:flex-row border-b-2 border-black">
       {/* LEFT - Seller */}
       <div className="w-full md:w-1/2 border-r-0 md:border-r border-black p-4 text-sm">
-        <h3 className="font-bold text-base text-[#056b66] mb-1">
-          DESIGNER'S SQUARE
+        <h3 className="font-bold text-base text-[#056b66] mb-4">
+          DESIGNER SQUARE
         </h3>
         <p>
           {invoice.billFrom?.streetAddress ||
@@ -108,10 +124,15 @@ function InvoiceDetails({ invoice }) {
           {invoice.billFrom?.postCode || "490020"}
         </p>
         <p className="mt-2">Mo. No. : 77228 28880, 86029 48880</p>
-        <p>GSTIN : {invoice.billFrom?.gstin || "22DPRPS5517H3ZG"}</p>
-        <p>
+        
+        {/* Only show Seller GSTIN if showGst is true */}
+        {showGst && (
+          <p>GSTIN : {invoice.billFrom?.gstin || "22DPRPS5517H3ZG"}</p>
+        )}
+        
+        {/* <p>
           E-MAIL : {invoice.billFrom?.email || "designersquarebhilai@gmail.com"}
-        </p>
+        </p> */}
       </div>
 
       {/* RIGHT - Invoice Meta */}
@@ -161,18 +182,22 @@ function InvoiceDetails({ invoice }) {
           {invoice.clientName}
         </p>
         <p className="text-gray-700">
-          {invoice.billTo?.streetAddress || "N/A"}
+          {invoice.billTo?.streetAddress || ""}
         </p>
         <p className="text-gray-700">
           {invoice.billTo?.city}, {invoice.billTo?.postCode}
         </p>
-        <p className="mt-2">
-          <span className="font-semibold text-gray-800">GST No. :</span>{" "}
-          {invoice.billTo?.gstin || "N/A"}
-        </p>
+        
+        {/* Only show Buyer GST No. if showGst is true */}
+        {showGst && (
+          <p className="mt-2">
+            <span className="font-semibold text-gray-800">GST No. :</span>{" "}
+            {invoice.billTo?.gstin || ""}
+          </p>
+        )}
       </div>
       {/* Bank */}
-      <div className="w-full md:w-1/2 p-4 text-sm">
+      <div className="w-full md:w-1/2 p-4 text-sm break-words">
         <p className="font-bold text-[#056b66] mb-1">BANK DETAILS</p>
         <p>
           <span className="font-semibold text-gray-800">BANK NAME :</span>{" "}
@@ -224,10 +249,13 @@ function InvoiceDetails({ invoice }) {
               <td className="border-r border-black py-2.5 px-3 text-center">
                 {item.quantity}
               </td>
+              {/* --- FIX: Wrapped rate and total in Number() --- */}
               <td className="border-r border-black py-2.5 px-3 text-right">
-                {item.rate.toFixed(2)}
+                {Number(item.rate).toFixed(2)}
               </td>
-              <td className="py-2.5 px-3 text-right">{item.total.toFixed(2)}</td>
+              <td className="py-2.5 px-3 text-right">
+                {Number(item.total).toFixed(2)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -235,9 +263,7 @@ function InvoiceDetails({ invoice }) {
     </div>
   );
 
-  // --- MODIFIED COMPONENT ---
   const TotalsSection = () => {
-    // Format the saved percentage
     const formattedPercent = savedGstPercent % 1 === 0 ? savedGstPercent.toFixed(0) : savedGstPercent.toFixed(2);
 
     return (
@@ -247,13 +273,14 @@ function InvoiceDetails({ invoice }) {
             <span className="font-semibold">Taxable Value</span>
             <span>{taxableValue.toFixed(2)}</span>
           </div>
+          
           <div className="flex justify-between border-b border-black px-4 py-2">
             <span className="font-semibold">
-              {/* Show the saved percentage */}
               GST ({formattedPercent}%)
             </span>
             <span>{gstAmount.toFixed(2)}</span>
           </div>
+          
           <div className="flex justify-between px-4 py-3 bg-gray-50">
             <span className="font-bold text-base text-[#056b66]">
               TOTAL AMOUNT
@@ -267,11 +294,11 @@ function InvoiceDetails({ invoice }) {
     );
   };
 
-  // --- MODIFIED COMPONENT ---
   const GstTable = () => {
-    // Calculate the rate (CGST/SGST)
+    // If no tax, do not render this table
+    if (!showGst) return null;
+
     const rate = savedGstPercent / 2;
-    // Format it
     const formattedRate = rate % 1 === 0 ? rate.toFixed(0) : rate.toFixed(2);
     const rateLabel = `${formattedRate}%`;
 
@@ -320,17 +347,15 @@ function InvoiceDetails({ invoice }) {
             <tbody className="text-center">
               <tr>
                 <td className="border-r border-black py-2 px-1">
-                  {invoice.hsn || "N/A"}
+                  {invoice.hsn || ""}
                 </td>
                 <td className="border-r border-black py-2 px-1">
                   {taxableValue.toFixed(2)}
                 </td>
-                {/* --- MODIFIED RATE --- */}
                 <td className="border-r border-black py-2 px-1">{rateLabel}</td>
                 <td className="border-r border-black py-2 px-1">
                   {centralTax.toFixed(2)}
                 </td>
-                {/* --- MODIFIED RATE --- */}
                 <td className="border-r border-black py-2 px-1">{rateLabel}</td>
                 <td className="py-2 px-1">{stateTax.toFixed(2)}</td>
               </tr>
@@ -344,6 +369,16 @@ function InvoiceDetails({ invoice }) {
   const ActionButtons = () => (
     <div className="flex flex-col items-center justify-center gap-4 mt-8 border-t border-black pt-6">
       <div className="flex flex-col sm:flex-row gap-4">
+        
+        {/* --- EDIT BUTTON (Calling internal handleEdit) --- */}
+        {/* <button
+          onClick={handleEdit}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-7 py-2.5 rounded-full shadow-lg transition-all flex items-center gap-2"
+        >
+          <Edit size={18} />
+          Edit
+        </button> */}
+
         <PDFDownloadLink
           document={<InvoicePDF invoice={invoice} />}
           fileName={`invoice-${invoice?.id || "unknown"}.pdf`}

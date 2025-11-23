@@ -67,39 +67,32 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
     }
   };
 
-  // --- CORRECTED TAX LOGIC ---
-  // 1. Get GST percentage from invoice, default to 18
-  //    We check isNaN because parseFloat(0) is 0 (which is falsy)
-  //    This logic correctly handles 0, null, and undefined.
+  // --- TAX LOGIC ---
   const parsedGst = parseFloat(invoice.gstPercent);
   const gstPercent = isNaN(parsedGst) ? 18 : parsedGst;
-  const gstRate = gstPercent / 100; // This will be 0.00 if gstPercent is 0
-  // --- END OF FIX ---
+  const gstRate = gstPercent / 100;
 
-  // 2. Calculate values
   const taxableValue =
     invoice.subtotal ||
     invoice.items.reduce((sum, item) => sum + (item.total || 0), 0);
 
-  // This will now correctly use gstRate (e.g., 0.00) if invoice.gstAmount is not present
-  const gstAmount = invoice.gstAmount ?? taxableValue * gstRate; // Use ?? for 0
-  const totalAmount = invoice.total ?? taxableValue + gstAmount; // Use ?? for 0
+  const gstAmount = invoice.gstAmount ?? taxableValue * gstRate;
+  const totalAmount = invoice.total ?? taxableValue + gstAmount;
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
 
-  // 3. Define labels needed for sub-components
-  // For the main total (e.g., "0%" or "18%")
   const formattedGstPercent =
     gstPercent % 1 === 0 ? gstPercent.toFixed(0) : gstPercent.toFixed(2);
 
-  // For the GstTable (e.g., "0%" or "9%")
-  const rate = gstPercent / 2;
-  const formattedRate = rate % 1 === 0 ? rate.toFixed(0) : rate.toFixed(2);
-  const rateLabel = `${formattedRate}%`;
+  // --- CHECK IF GST IS APPLICABLE ---
+  const showGst = gstAmount > 0;
 
   const InvoiceHeader = () => (
     <div className="text-center border-b-2 border-black pb-4 mb-4">
-      <h2 className="text-3xl font-bold text-[#056b66]">TAX INVOICE</h2>
+      {/* Toggle Title: TAX INVOICE vs INVOICE */}
+      <h2 className="text-3xl font-bold text-[#056b66]">
+        {showGst ? "TAX INVOICE" : "INVOICE"}
+      </h2>
     </div>
   );
 
@@ -129,7 +122,12 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
           {invoice.billFrom?.postCode || "490020"}
         </p>
         <p className="mt-2">Mo. No. : 77228 28880, 86029 48880</p>
-        <p>GSTIN : {invoice.billFrom?.gstin || "22DPRPS5517H3ZG"}</p>
+        
+        {/* --- CHANGE: HIDE SELLER GSTIN IF NO TAX --- */}
+        {showGst && (
+          <p>GSTIN : {invoice.billFrom?.gstin || "22DPRPS5517H3ZG"}</p>
+        )}
+        
         <p>
           E-MAIL : {invoice.billFrom?.email || "designersquarebhilai@gmail.com"}
         </p>
@@ -182,18 +180,22 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
           {invoice.clientName}
         </p>
         <p className="text-gray-700">
-          {invoice.billTo?.streetAddress || "N/A"}
+          {invoice.billTo?.streetAddress || ""}
         </p>
         <p className="text-gray-700">
           {invoice.billTo?.city}, {invoice.billTo?.postCode}
         </p>
-        <p className="mt-2">
-          <span className="font-semibold text-gray-800">GST No. :</span>{" "}
-          {invoice.billTo?.gstin || "N/A"}
-        </p>
+        
+        {/* --- CHANGE: HIDE BUYER GSTIN IF NO TAX --- */}
+        {showGst && (
+          <p className="mt-2">
+            <span className="font-semibold text-gray-800">GST No. :</span>{" "}
+            {invoice.billTo?.gstin || ""}
+          </p>
+        )}
       </div>
       {/* Bank */}
-      <div className="w-full md:w-1/2 p-4 text-sm">
+      <div className="w-full md:w-1/2 p-4 text-sm break-words">
         <p className="font-bold text-[#056b66] mb-1">BANK DETAILS</p>
         <p>
           <span className="font-semibold text-gray-800">BANK NAME :</span>{" "}
@@ -248,9 +250,7 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
               <td className="border-r border-black py-2.5 px-3 text-right">
                 {item.rate.toFixed(2)}
               </td>
-              <td className="py-2.5 px-3 text-right">
-                {item.total.toFixed(2)}
-              </td>
+              <td className="py-2.5 px-3 text-right">{item.total.toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
@@ -266,7 +266,9 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
           <span>{taxableValue.toFixed(2)}</span>
         </div>
         <div className="flex justify-between border-b border-black px-4 py-2">
-          <span className="font-semibold">GST ({formattedGstPercent}%)</span>
+          <span className="font-semibold">
+            GST ({formattedGstPercent}%)
+          </span>
           <span>{gstAmount.toFixed(2)}</span>
         </div>
         <div className="flex justify-between px-4 py-3 bg-gray-50">
@@ -281,68 +283,75 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
     </div>
   );
 
-  const GstTable = () => (
-    <div className="mt-4">
-      <p className="text-xs font-semibold mb-1">Tax Summary (Amount in INR):</p>
-      <div className="border border-black rounded-md overflow-hidden">
-        <table className="w-full text-xs border-collapse">
-          <thead className="bg-gray-50 border-b border-black text-center">
-            <tr className="border-b border-black">
-              <th
-                rowSpan={2}
-                className="border-r border-black py-2 px-1 font-medium align-middle"
-              >
-                HSN/SAC
-              </th>
-              <th
-                rowSpan={2}
-                className="border-r border-black py-2 px-1 font-medium align-middle"
-              >
-                TAXABLE VALUE
-              </th>
-              <th
-                colSpan={2}
-                className="border-r border-black py-2 px-1 font-medium"
-              >
-                CENTRAL TAX (CGST)
-              </th>
-              <th colSpan={2} className="py-2 px-1 font-medium">
-                STATE TAX (SGST)
-              </th>
-            </tr>
-            <tr className="bg-gray-100/50">
-              <th className="border-r border-black py-1 px-1 font-normal">
-                RATE
-              </th>
-              <th className="border-r border-black py-1 px-1 font-normal">
-                AMOUNT
-              </th>
-              <th className="border-r border-black py-1 px-1 font-normal">
-                RATE
-              </th>
-              <th className="py-1 px-1 font-normal">AMOUNT</th>
-            </tr>
-          </thead>
-          <tbody className="text-center">
-            <tr>
-              <td className="border-r border-black py-2 px-1">
-                {invoice.hsn || "N/A"}
-              </td>
-              <td className="border-r border-black py-2 px-1">
-                {taxableValue.toFixed(2)}
-              </td>
-              <td className="border-r border-black py-2 px-1">{rateLabel}</td>
-              <td className="border-r border-black py-2 px-1">
-                {centralTax.toFixed(2)}
-              </td>
-              <td className="border-r border-black py-2 px-1">{rateLabel}</td>
-              <td className="py-2 px-1">{stateTax.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
+  const GstTable = () => {
+    // --- CHANGE: Do not render if no tax ---
+    if (!showGst) return null;
+
+    const rate = gstPercent / 2;
+    const formattedRate = rate % 1 === 0 ? rate.toFixed(0) : rate.toFixed(2);
+    const rateLabel = `${formattedRate}%`;
+
+    return (
+      <div className="mt-4">
+        <p className="text-xs font-semibold mb-1">Tax Summary (Amount in INR):</p>
+        <div className="border border-black rounded-md overflow-hidden">
+          <table className="w-full text-xs border-collapse">
+            <thead className="bg-gray-50 border-b border-black text-center">
+              <tr className="border-b border-black">
+                <th
+                  rowSpan={2}
+                  className="border-r border-black py-2 px-1 font-medium align-middle"
+                >
+                  HSN/SAC
+                </th>
+                <th
+                  rowSpan={2}
+                  className="border-r border-black py-2 px-1 font-medium align-middle"
+                >
+                  TAXABLE VALUE
+                </th>
+                <th
+                  colSpan={2}
+                  className="border-r border-black py-2 px-1 font-medium"
+                >
+                  CENTRAL TAX (CGST)
+                </th>
+                <th colSpan={2} className="py-2 px-1 font-medium">
+                  STATE TAX (SGST)
+                </th>
+              </tr>
+              <tr className="bg-gray-100/50">
+                <th className="border-r border-black py-1 px-1 font-normal">
+                  RATE
+                </th>
+                <th className="border-r border-black py-1 px-1 font-normal">
+                  AMOUNT
+                </th>
+                <th className="border-r border-black py-1 px-1 font-normal">
+                  RATE
+                </th>
+                <th className="py-1 px-1 font-normal">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody className="text-center">
+              <tr>
+                <td className="border-r border-black py-2 px-1">{invoice.hsn || ""}</td>
+                <td className="border-r border-black py-2 px-1">
+                  {taxableValue.toFixed(2)}
+                </td>
+                <td className="border-r border-black py-2 px-1">{rateLabel}</td>
+                <td className="border-r border-black py-2 px-1">
+                  {centralTax.toFixed(2)}
+                </td>
+                <td className="border-r border-black py-2 px-1">{rateLabel}</td>
+                <td className="py-2 px-1">{stateTax.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const ActionButtons = () => (
     <div className="flex flex-col items-center justify-center gap-4 mt-8 border-t border-black pt-6">
@@ -396,8 +405,8 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
               Confirm Deletion
             </h2>
             <p className="mb-6 text-slate-700">
-              Are you sure you want to delete this invoice? This action cannot
-              be undone.
+              Are you sure you want to delete this invoice? This action cannot be
+              undone.
             </p>
 
             {actionError && (
