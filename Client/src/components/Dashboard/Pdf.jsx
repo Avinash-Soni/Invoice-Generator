@@ -147,7 +147,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
       // 2. Define Margins & Dimensions
       const leftMargin = 25.4; // 1 inch
       const rightMargin = 25.4; // 1 inch
-      const topMarginInches = 1.5;
+      const topMarginInches = 2.8;
       const topMarginMM = topMarginInches * 25.4; // ~38.1mm
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -259,15 +259,19 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
           </div>
           <div
             style={{
-              textAlign: "center",
+             display: "flex",            // 1. Use Flexbox layout
+              justifyContent: "center",   // 2. Center content Horizontally
+              alignItems: "center",       // 3. Center content Vertically
+              textAlign: "center",        // 4. Ensure multi-line text stays centered
               background: "#a20000",
               color: "white",
-              padding: "20px 10px",
+              padding: "12px 10px 25px 10px",       
               fontWeight: "bold",
               fontSize: "20px",
               borderRadius: "6px",
               marginBottom: "10px",
               letterSpacing: "1px",
+              lineHeight: "1.2",
             }}
           >
             LEDGER REPORT — {decodedName}
@@ -329,7 +333,7 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                         <th style={{ padding: "8px", border: "1px solid #000", textAlign: "left" }}>
                           NAME
                         </th>
-                        <th colSpan="2" style={{ padding: "15px", border: "1px solid #000", fontWeight: "bold", color: "#a20000", fontSize: "18px" }}>
+                        <th colSpan="2" style={{ padding: "12px 10px 22px 10px", border: "1px solid #000", fontWeight: "bold", color: "#a20000", fontSize: "18px" }}>
                           {decodedName}
                         </th>
                         <th style={{ padding: "8px", border: "1px solid #000", textAlign: "center" }}>
@@ -364,12 +368,12 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                         </th>
                       </tr>
                       <tr style={{ background: "#a20000", color: "white" }}>
-                        <th style={{ border: "1px solid #000", padding: "6px" }}> S.NO. </th>
-                        <th style={{ border: "1px solid #000", padding: "6px" }}> BILL DATE </th>
-                        <th style={{ border: "1px solid #000", padding: "6px" }}> PARTICULARS </th>
-                        <th style={{ border: "1px solid #000", padding: "6px" }}> DR. </th>
-                        <th style={{ border: "1px solid #000", padding: "6px" }}> CR. </th>
-                        <th style={{ border: "1px solid #000", padding: "6px" }}> BALANCE </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> S.NO. </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> BILL DATE </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> PARTICULARS </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> DR. </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> CR. </th>
+                        <th style={{ border: "1px solid #000", padding: "12px 10px 22px 10px" }}> BALANCE </th>
                       </tr>
                     </thead>
 
@@ -415,22 +419,22 @@ const Pdf = ({ customerName: propName, selectedYear }) => {
                             fontWeight: "bold",
                           }}
                         >
-                          <td colSpan={3} style={{ textAlign: "center", padding: "6px", border: "1px solid #000" }}>
+                          <td colSpan={3} style={{ textAlign: "center", padding: "12px 10px 22px 10px", border: "1px solid #000" }}>
                             TOTAL
                           </td>
-                          <td style={{ textAlign: "right", padding: "6px 8px", border: "1px solid #000" }}>
+                          <td style={{ textAlign: "right", padding: "12px 10px 22px 10px", border: "1px solid #000" }}>
                             {totals.dr.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </td>
-                          <td style={{ textAlign: "right", padding: "6px 8px", border: "1px solid #000" }}>
+                          <td style={{ textAlign: "right", padding: "12px 10px 22px 10px", border: "1px solid #000" }}>
                             {totals.cr.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })}
                           </td>
-                          <td style={{ textAlign: "right", padding: "6px 8px", border: "1px solid #a20000", color: "#ffcccc", background: "#a20000" }}>
+                          <td style={{ textAlign: "right", padding: "12px 10px 22px 10px", border: "1px solid #a20000", color: "#ffcccc", background: "#a20000" }}>
                             {totals.balance.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,

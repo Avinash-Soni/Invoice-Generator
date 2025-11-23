@@ -74,9 +74,11 @@ function InvoiceDetails({ invoice }) {
     }
   };
 
-  const taxableValue = invoice.subtotal;
-  const gstAmount = invoice.gstAmount;
-  const totalAmount = invoice.total;
+  // --- FIX: Ensure these are numbers before math or .toFixed() ---
+  const taxableValue = Number(invoice.subtotal) || 0;
+  const gstAmount = Number(invoice.gstAmount) || 0;
+  const totalAmount = Number(invoice.total) || 0;
+  
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
 
@@ -110,8 +112,8 @@ function InvoiceDetails({ invoice }) {
     <div className="flex flex-col md:flex-row border-b-2 border-black">
       {/* LEFT - Seller */}
       <div className="w-full md:w-1/2 border-r-0 md:border-r border-black p-4 text-sm">
-        <h3 className="font-bold text-base text-[#056b66] mb-1">
-          DESIGNER'S SQUARE
+        <h3 className="font-bold text-base text-[#056b66] mb-4">
+          DESIGNER SQUARE
         </h3>
         <p>
           {invoice.billFrom?.streetAddress ||
@@ -128,9 +130,9 @@ function InvoiceDetails({ invoice }) {
           <p>GSTIN : {invoice.billFrom?.gstin || "22DPRPS5517H3ZG"}</p>
         )}
         
-        <p>
+        {/* <p>
           E-MAIL : {invoice.billFrom?.email || "designersquarebhilai@gmail.com"}
-        </p>
+        </p> */}
       </div>
 
       {/* RIGHT - Invoice Meta */}
@@ -247,10 +249,13 @@ function InvoiceDetails({ invoice }) {
               <td className="border-r border-black py-2.5 px-3 text-center">
                 {item.quantity}
               </td>
+              {/* --- FIX: Wrapped rate and total in Number() --- */}
               <td className="border-r border-black py-2.5 px-3 text-right">
-                {item.rate.toFixed(2)}
+                {Number(item.rate).toFixed(2)}
               </td>
-              <td className="py-2.5 px-3 text-right">{item.total.toFixed(2)}</td>
+              <td className="py-2.5 px-3 text-right">
+                {Number(item.total).toFixed(2)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -366,13 +371,13 @@ function InvoiceDetails({ invoice }) {
       <div className="flex flex-col sm:flex-row gap-4">
         
         {/* --- EDIT BUTTON (Calling internal handleEdit) --- */}
-        <button
+        {/* <button
           onClick={handleEdit}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-7 py-2.5 rounded-full shadow-lg transition-all flex items-center gap-2"
         >
           <Edit size={18} />
           Edit
-        </button>
+        </button> */}
 
         <PDFDownloadLink
           document={<InvoicePDF invoice={invoice} />}

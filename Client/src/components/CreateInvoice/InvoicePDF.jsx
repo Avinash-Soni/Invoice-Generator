@@ -1,10 +1,11 @@
 import React from "react";
 import { Page, Text, View, Document, StyleSheet, Image } from '@react-pdf/renderer';
-import headerImage from "../../assets/header.jpg"; // Make sure this path is correct
+import headerImage from "../../assets/header.jpg"; 
 
+// --- FIX: Ensure amount is parsed as float before toFixed ---
 const formatCurrency = (amount) => {
-  const formattedAmount = (amount || 0).toFixed(2);
-  return `${formattedAmount}`;
+  const num = parseFloat(amount) || 0;
+  return num.toFixed(2);
 };
 
 const formatDate = (dateString) => {
@@ -209,9 +210,11 @@ const styles = StyleSheet.create({
 });
 
 function InvoicePDF({ invoice }) {
-  const taxableValue = invoice.subtotal;
-  const gstAmount = invoice.gstAmount;
-  const totalAmount = invoice.total;
+  // --- FIX: Ensure these are Numbers immediately ---
+  const taxableValue = Number(invoice.subtotal) || 0;
+  const gstAmount = Number(invoice.gstAmount) || 0;
+  const totalAmount = Number(invoice.total) || 0;
+  
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
   
@@ -228,7 +231,6 @@ function InvoicePDF({ invoice }) {
         <Image src={headerImage} style={styles.newHeader} fixed />
         
         <View style={styles.titleContainer}>
-          {/* --- CHANGE: Toggle Title --- */}
           <Text style={styles.title}>{showGst ? "TAX INVOICE" : "INVOICE"}</Text>
         </View>
 
@@ -237,17 +239,16 @@ function InvoicePDF({ invoice }) {
           {/* ... Seller Info / Invoice Meta ... */}
           <View style={[styles.section, { borderBottomWidth: 2.5, borderBottomColor: 'black' }]}>
             <View style={[styles.halfColumn, styles.borderedColumn, styles.textXs]}>
-              <Text style={[styles.bold, styles.textLg]}>DESIGNER'S SQUARE</Text>
-              <Text style={[styles.bold, { marginTop: 2 }]}>{invoice.billFrom?.streetAddress || "Second Floor, LIG-405, Dindayal Nagar, Bhilai"}</Text>
+              <Text style={[styles.bold, styles.textLg]}>DESIGNER SQUARE</Text>
+              <Text style={[styles.bold, { marginTop: 10 }]}>{invoice.billFrom?.streetAddress || "Second Floor, LIG-405, Dindayal Nagar, Bhilai"}</Text>
               <Text>{invoice.billFrom?.city || "Distt. Durg (C.G.)"} Pin - {invoice.billFrom?.postCode || "490020"}</Text>
               <Text>Mo. No. : 77228 28880, 86029 48880</Text>
               
-              {/* --- CHANGE: Hide Seller GSTIN if no tax --- */}
               {showGst && (
                 <Text>GSTIN : {invoice.billFrom?.gstin || "22DPRPS5517H3ZG"}</Text>
               )}
               
-              <Text>E-MAIL : {invoice.billFrom?.email || "designersquarebhilai@gmail.com"}</Text>
+              {/* <Text>E-MAIL : {invoice.billFrom?.email || "designersquarebhilai@gmail.com"}</Text> */}
             </View>
             <View style={styles.halfColumn}>
               <View style={styles.metaGrid}>
@@ -270,10 +271,9 @@ function InvoicePDF({ invoice }) {
             <View style={[styles.halfColumn, styles.borderedColumn]}>
               <Text style={styles.bold}>BUYER :</Text>
               <Text style={[styles.bold, styles.textBase]}>{invoice.clientName}</Text>
-              <Text>{invoice.billTo?.streetAddress || "N/A"}</Text>
+              <Text>{invoice.billTo?.streetAddress}</Text>
               <Text>{invoice.billTo?.city}, {invoice.billTo?.postCode}</Text>
               
-              {/* --- CHANGE: Hide Buyer GST No if no tax --- */}
               {showGst && (
                  <Text><Text style={styles.bold}>GST No. :</Text> {invoice.billTo?.gstin || "N/A"}</Text>
               )}
@@ -302,8 +302,9 @@ function InvoicePDF({ invoice }) {
                 <View style={[styles.tableCol, styles.colSNo]}><Text>{String(index + 1).padStart(2, "0")}.</Text></View>
                 <View style={[styles.tableCol, styles.colParticulars]}><Text>{item.name}</Text></View>
                 <View style={[styles.tableCol, styles.colQty]}><Text>{item.quantity} {item.unit || "unit"}</Text></View>
-                <View style={[styles.tableCol, styles.colRate]}><Text>{item.rate.toFixed(2)}</Text></View>
-                <View style={[styles.tableCol, styles.colAmount, { borderRightWidth: 0 }]}><Text>{item.total.toFixed(2)}</Text></View>
+                {/* --- FIX: Number() wrapper added here --- */}
+                <View style={[styles.tableCol, styles.colRate]}><Text>{Number(item.rate).toFixed(2)}</Text></View>
+                <View style={[styles.tableCol, styles.colAmount, { borderRightWidth: 0 }]}><Text>{Number(item.total).toFixed(2)}</Text></View>
               </View>
             ))}
           </View>
