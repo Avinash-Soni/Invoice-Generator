@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Plus,
-  Check,
-  X,
-  Trash2,
-  AlertTriangle,
-  BookUser,
-} from "lucide-react";
+import { Plus, Check, X, Trash2, AlertTriangle, BookUser } from "lucide-react";
 import api from "../../api";
 import DisplayInvoiceDetails from "./DisplayInvoiceDetails";
 import LedgerTable from "./LedgerTable";

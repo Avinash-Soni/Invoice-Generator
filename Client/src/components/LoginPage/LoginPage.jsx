@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "./AuthContext";
-import logoImage from '../../assets/Logo1.png';
+import logoImage from "../../assets/Logo1.png";
 
 export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState(""); 
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [notification, setNotification] = useState(null);
@@ -47,8 +47,6 @@ export default function LoginPage() {
       }
     }
   };
-
-
 
   return (
     <div className={`container ${isSignUp ? "sign-up-mode" : ""}`}>
@@ -134,11 +132,16 @@ export default function LoginPage() {
           <div className="content">
             <div className="flex items-center justify-center">
               {/* REPLACED this: <DesignerSquareLogo size={250} /> */}
-              <img src={logoImage} alt="Designer Square Logo" className="w-64 h-auto" />
+              <img
+                src={logoImage}
+                alt="Designer Square Logo"
+                className="w-64 h-auto"
+              />
             </div>
             <h3>Don't have an account?</h3>
             <p>
-              Sign up now and get started with all our features in just a few clicks.
+              Sign up now and get started with all our features in just a few
+              clicks.
             </p>
             <button
               className="btn transparent"
@@ -153,7 +156,11 @@ export default function LoginPage() {
           <div className="content">
             <div className="flex items-center justify-center">
               {/* REPLACED this: <DesignerSquareLogo size={250} /> */}
-              <img src={logoImage} alt="Designer Square Logo" className="w-64 h-auto" />
+              <img
+                src={logoImage}
+                alt="Designer Square Logo"
+                className="w-64 h-auto"
+              />
             </div>
             <h3>Join Our Community</h3>
             <p>Sign in to access your account and explore more features</p>

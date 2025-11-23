@@ -83,7 +83,7 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
 
   // This will now correctly use gstRate (e.g., 0.00) if invoice.gstAmount is not present
   const gstAmount = invoice.gstAmount ?? taxableValue * gstRate; // Use ?? for 0
-  const totalAmount = invoice.total ?? taxableValue + gstAmount;  // Use ?? for 0
+  const totalAmount = invoice.total ?? taxableValue + gstAmount; // Use ?? for 0
   const centralTax = gstAmount / 2;
   const stateTax = gstAmount / 2;
 
@@ -96,7 +96,7 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
   const rate = gstPercent / 2;
   const formattedRate = rate % 1 === 0 ? rate.toFixed(0) : rate.toFixed(2);
   const rateLabel = `${formattedRate}%`;
-  
+
   const InvoiceHeader = () => (
     <div className="text-center border-b-2 border-black pb-4 mb-4">
       <h2 className="text-3xl font-bold text-[#056b66]">TAX INVOICE</h2>
@@ -248,7 +248,9 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
               <td className="border-r border-black py-2.5 px-3 text-right">
                 {item.rate.toFixed(2)}
               </td>
-              <td className="py-2.5 px-3 text-right">{item.total.toFixed(2)}</td>
+              <td className="py-2.5 px-3 text-right">
+                {item.total.toFixed(2)}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -264,9 +266,7 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
           <span>{taxableValue.toFixed(2)}</span>
         </div>
         <div className="flex justify-between border-b border-black px-4 py-2">
-          <span className="font-semibold">
-            GST ({formattedGstPercent}%)
-          </span>
+          <span className="font-semibold">GST ({formattedGstPercent}%)</span>
           <span>{gstAmount.toFixed(2)}</span>
         </div>
         <div className="flex justify-between px-4 py-3 bg-gray-50">
@@ -325,7 +325,9 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
           </thead>
           <tbody className="text-center">
             <tr>
-              <td className="border-r border-black py-2 px-1">{invoice.hsn || "N/A"}</td>
+              <td className="border-r border-black py-2 px-1">
+                {invoice.hsn || "N/A"}
+              </td>
               <td className="border-r border-black py-2 px-1">
                 {taxableValue.toFixed(2)}
               </td>
@@ -394,8 +396,8 @@ const DisplayInvoiceDetails = ({ invoice, onClose, onDelete }) => {
               Confirm Deletion
             </h2>
             <p className="mb-6 text-slate-700">
-              Are you sure you want to delete this invoice? This action cannot be
-              undone.
+              Are you sure you want to delete this invoice? This action cannot
+              be undone.
             </p>
 
             {actionError && (

@@ -41,7 +41,7 @@ const api = {
   // ✨ --- THIS IS THE FIX --- ✨
   // You MUST add this delete function.
   // Use quotes because 'delete' is a reserved keyword.
-  'delete': async (path) => {
+  delete: async (path) => {
     try {
       const response = await apiClient.delete(path);
       return response.data;

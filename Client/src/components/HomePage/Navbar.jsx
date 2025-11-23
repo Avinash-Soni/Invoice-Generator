@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../LoginPage/AuthContext";
-import logoImage from '../../assets/Logo.png';
+import logoImage from "../../assets/Logo.png";
 import { useState } from "react";
 // --- 1. Import Redux tools ---
 import { useDispatch } from "react-redux";
@@ -17,11 +17,11 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       await logout(); // Calls your AuthContext logout
-      
+
       // --- 3. Dispatch actions to clear Redux state ---
       dispatch(clearCustomers());
       dispatch(clearInvoices());
-      
+
       navigate("/login");
     } catch (err) {
       console.error("Logout failed:", err);
@@ -40,12 +40,19 @@ const Navbar = () => {
             src={logoImage}
             alt="Designer Square Logo"
             className="h-15 sm:h-15 md:h-20 lg:h-20"
-            style={{ width: 'auto' }}
+            style={{ width: "auto" }}
           />
         </Link>
         <div className="flex gap-6 text-base font-medium">
-          <Link to="/home" className="hover:text-[#0bd1c5] transition-colors">Home</Link>
-          <Link to="/home/features" className="hover:text-[#0bd1c5] transition-colors">Features</Link>
+          <Link to="/home" className="hover:text-[#0bd1c5] transition-colors">
+            Home
+          </Link>
+          <Link
+            to="/home/features"
+            className="hover:text-[#0bd1c5] transition-colors"
+          >
+            Features
+          </Link>
           <button
             onClick={() => setIsModalOpen(true)}
             className="hover:text-[#0bd1c5] transition-colors font-medium bg-transparent border-none cursor-pointer"
@@ -65,7 +72,9 @@ const Navbar = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-2xl font-bold mb-4">Confirm Logout</h2>
-            <p className="mb-6 text-slate-700">Are you sure you want to log out?</p>
+            <p className="mb-6 text-slate-700">
+              Are you sure you want to log out?
+            </p>
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => setIsModalOpen(false)}
