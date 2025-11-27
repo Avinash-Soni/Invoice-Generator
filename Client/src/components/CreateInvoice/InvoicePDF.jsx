@@ -376,13 +376,17 @@ function InvoicePDF({ invoice }) {
         {/* ... Signature and Terms ... */}
         <View style={styles.signatureAndTermsContainer}>
           <View style={styles.termsSection}>
-            <View style={{fontSize: 7, marginTop: 10}}>
-              <Text style={styles.bold}>TERMS AND CONDITIONS :</Text>
-              <Text>1. Certified that the particulars given above are correct in all respects, Also the charged & collected are in accordance with the provisions of the Act & Rules made, There under company's terms & conditions shall apply &subjects to Durg Jurisdiction.</Text>
-              <Text>2. Interest @ 24% P.A. shall be charged in case of delayed payments beyond approved terms & GST Extra.</Text>
-              <Text>3. E. & O. E.</Text>
-            </View>
+            {/* --- CHANGE: Wrapped content in showGst condition --- */}
+            {showGst && (
+              <View style={{ fontSize: 7, marginTop: 10 }}>
+                <Text style={styles.bold}>TERMS AND CONDITIONS :</Text>
+                <Text>1. Certified that the particulars given above are correct in all respects, Also the charged & collected are in accordance with the provisions of the Act & Rules made, There under company's terms & conditions shall apply &subjects to Durg Jurisdiction.</Text>
+                <Text>2. Interest @ 24% P.A. shall be charged in case of delayed payments beyond approved terms & GST Extra.</Text>
+                <Text>3. E. & O. E.</Text>
+              </View>
+            )}
           </View>
+          
           <View style={styles.signatorySection}>
             <View style={styles.signatoryBox}>
               <Text style={styles.bold}>AUTHORISED SIGNATORY</Text>

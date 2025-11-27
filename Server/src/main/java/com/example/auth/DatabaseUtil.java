@@ -5,12 +5,12 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DatabaseUtil {
-    // --- IMPORTANT: CONFIGURE YOUR DATABASE DETAILS HERE ---
+    // CHANGE THESE TO MATCH THE CLIENT'S MYSQL CREDENTIALS
     private static final String JDBC_URL = "jdbc:mysql://localhost:3306/user_auth_db";
-    private static final String JDBC_USER = "root"; // <-- CHANGE THIS TO YOUR MYSQL USERNAME
-    private static final String JDBC_PASSWORD = "Avinash@27"; // <-- CHANGE THIS TO YOUR MYSQL PASSWORD
+    private static final String DB_NAME = "user_auth_db";
+    private static final String JDBC_USER = "root";
+    private static final String JDBC_PASSWORD = "Avinash@27";
 
-    // Load the MySQL JDBC driver once when the class is loaded.
     static {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -19,12 +19,11 @@ public class DatabaseUtil {
         }
     }
 
-    /**
-     * Establishes and returns a connection to the database.
-     * @return A database connection object.
-     * @throws SQLException if a database access error occurs.
-     */
     public static Connection getConnection() throws SQLException {
         return DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASSWORD);
     }
+
+    public static String getDbName() { return DB_NAME; }
+    public static String getDbUser() { return JDBC_USER; }
+    public static String getDbPassword() { return JDBC_PASSWORD; }
 }
