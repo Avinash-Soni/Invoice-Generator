@@ -1,0 +1,87 @@
+-- 1. Create a fresh database
+CREATE DATABASE user_auth_db;
+
+-- 2. Switch to the new database
+USE user_auth_db;
+
+-- 3. Create users table
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    name VARCHAR(255) NOT NULL,
+    mobile_number VARCHAR(20) NOT NULL
+);
+
+-- 4. Create invoices table
+CREATE TABLE invoices (
+    id VARCHAR(36) NOT NULL, -- UUID format
+    user_id INT NOT NULL,
+    client_name VARCHAR(255) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    items JSON NOT NULL,
+    bill_from JSON NOT NULL,
+    bill_to JSON NOT NULL,
+    project_description TEXT,
+    payment_terms VARCHAR(50),
+    invoice_date DATE NOT NULL,
+    terms_of_payment VARCHAR(255),
+    suppliers_ref VARCHAR(255),
+    other_ref VARCHAR(255),
+    subtotal DECIMAL(10, 2) NOT NULL,
+    gst_amount DECIMAL(10, 2) NOT NULL,
+    total DECIMAL(10, 2) NOT NULL,
+    hsn VARCHAR(50),
+    gst_mode VARCHAR(10) DEFAULT 'auto',
+    gst_percent DECIMAL(5, 2) DEFAULT 18.00,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- 5. Add index for faster lookups
+CREATE INDEX idx_user_id ON invoices(user_id);
+
+-- 6. Create customers table
+CREATE TABLE customers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE KEY uk_user_customer (user_id, name)
+);
+
+-- 7. Create ledger_entries table
+CREATE TABLE ledger_entries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    customer_id INT NOT NULL,
+    invoice_id VARCHAR(36) NULL, -- Linked to invoice (can be null if deleted)
+    entry_date DATE NOT NULL,
+    particulars VARCHAR(255) NOT NULL,
+    debit DECIMAL(10, 2) DEFAULT 0,
+    credit DECIMAL(10, 2) DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+);
+
+-- 8. Modify invoices table to use a composite primary key (user_id + id)
+ALTER TABLE invoices DROP PRIMARY KEY;
+ALTER TABLE invoices ADD PRIMARY KEY (user_id, id);
+
+-- 9. Add composite foreign key reference in ledger_entries
+ALTER TABLE ledger_entries
+ADD CONSTRAINT fk_ledger_invoice
+FOREIGN KEY (user_id, invoice_id)
+REFERENCES invoices(user_id, id)
+ON DELETE CASCADE;
+
+ALTER TABLE customers
+ADD COLUMN client_email VARCHAR(255),
+ADD COLUMN street_address VARCHAR(255),
+ADD COLUMN city VARCHAR(100),
+ADD COLUMN post_code VARCHAR(20),
+ADD COLUMN country VARCHAR(100),
+ADD COLUMN gstin VARCHAR(20);
+
+ALTER TABLE invoices MODIFY hsn VARCHAR(255) NULL;
